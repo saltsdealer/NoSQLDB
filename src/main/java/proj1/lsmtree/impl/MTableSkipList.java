@@ -7,6 +7,7 @@ package proj1.lsmtree.impl;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
+import proj1.lsmtree.IMTable;
 import proj1.lsmtree.model.DelCommand;
 import proj1.lsmtree.model.SetCommand;
 import proj1.lsmtree.model.InsertCommand;
@@ -15,14 +16,14 @@ import proj1.lsmtree.model.InsertCommand;
  * This implementation uses ConcurrentSkipListMap for simplicity and thread-safety,
  * ensuring that operations on the Memtable are safe in a concurrent environment.
  */
-public class Memtable {
+public class MTableSkipList implements IMTable {
     // Skip list structure to store commands. It provides efficient search, insert, and delete operations.
     private Map<String, Command> skipList;
 
     /**
      * Constructor to initialize the Memtable with a ConcurrentSkipListMap.
      */
-    public Memtable() {
+    public MTableSkipList() {
         this.skipList = new ConcurrentSkipListMap<>();
     }
 
@@ -70,7 +71,7 @@ public class Memtable {
      * @param key The key for which to search.
      * @return The command associated with the key if found, or null if the key is not present.
      */
-    public Command search(String key) {
+    public Command get(String key) {
         return skipList.get(key); // Returns the command or null if the key is not found
     }
 
@@ -90,5 +91,23 @@ public class Memtable {
      */
     public boolean isEmpty() {
         return skipList.isEmpty();
+    }
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder("MTableSkipList{");
+        sb.append("skipList=[");
+        // Iterate over the skipList entries to format each key-command pair
+        boolean first = true; // To handle comma separation
+        for (Map.Entry<String, Command> entry : skipList.entrySet()) {
+            if (first) {
+                first = false;
+            } else {
+                sb.append(", "); // Add comma between entries after the first
+            }
+            // Append each key-command pair in the format key=command
+            sb.append(entry.getKey()).append("=").append(entry.getValue().toString());
+        }
+        sb.append("]}");
+        return sb.toString();
     }
 }

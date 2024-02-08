@@ -10,8 +10,15 @@ import proj1.lsmtree.impl.Command;
 
 public class SearchCommand extends Command {
 
+  String key;
+
   public SearchCommand(String key) {
-    this.key = key; // Pass null for value, as it's not used in search
+    this.key = key;
+  }
+
+  @Override
+  public String getKey() {
+    return key;
   }
 
   @Override

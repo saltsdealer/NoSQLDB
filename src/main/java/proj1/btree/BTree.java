@@ -12,6 +12,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.StringJoiner;
+import proj1.lsmtree.impl.Command;
+import proj1.lsmtree.model.InsertCommand;
+import proj1.lsmtree.model.SearchCommand;
 
 /**
  * Represents a B-Tree, a self-balancing tree data structure that maintains sorted data in a way that
@@ -61,7 +64,7 @@ public class BTree {
    * @param key The key of the entry to search for.
    * @return The entry with the specified key if found, otherwise {@code null}.
    */
-  public Entry searchEntry(int key) {
+  public Command searchEntry(int key) {
     return searchEntry(root, key);
   }
 
@@ -72,26 +75,19 @@ public class BTree {
    * @param key The key of the entry to search for.
    * @return The entry with the specified key if it is found within this subtree, otherwise {@code null}.
    */
-  private Entry searchEntry(Node node, int key) {
-    while (node != null) {
-      List<Entry> entries = node.getEntries(); // Store entries in a local variable to avoid multiple calls.
-      int index = Collections.binarySearch(entries, new Entry(key, null));
-
-      if (index >= 0) {
-        // Key found in the current node's entries.
-        return entries.get(index);
-      } else {
-        // Key not found, proceed to the appropriate child node.
-        int childIndex = -(index + 1); // Calculate the child index to search next.
-        if (childIndex < node.getChildNodes().size()) {
-          node = node.getChildNodes().get(childIndex); // Move to the child node and continue the loop.
-        } else {
-          // No more children to search, key not found.
-          return null;
-        }
-      }
+  private Command searchEntry(Node node, int key) {
+    if (node == null) {
+      return null;
     }
-    return null;
+    int index = Collections.binarySearch(node.getEntries(), new SearchCommand(String.valueOf(key)));
+    if (index >= 0) {
+      return node.getEntries().get(index);
+    } else {
+      if (node.getChildNodes().size() == 0) {
+        return null;
+      }
+      return searchEntry(node.getChildNodes().get(-index - 1), key);
+    }
   }
 
   /**
@@ -118,7 +114,8 @@ public class BTree {
       return null; // Base case: node is null, search path ends
     }
     // Perform a binary search among the entries of the current node
-    int index = Collections.binarySearch(node.getEntries(), new Entry(key, null), Comparator.comparingInt(e -> e.key));
+    int index = Collections.binarySearch(node.getEntries(), new SearchCommand(Integer.toString(key)),
+        Comparator.comparingInt(e -> Integer.parseInt(e.getKey())));
     if (index >= 0) {
       // Key found in the current node's entries
       return node;
@@ -140,15 +137,16 @@ public class BTree {
    *
    * @param entry The entry to insert into the B-tree. The entry contains a key-value pair.
    */
-  public void insert(Entry entry) {
+  public boolean insert(Command entry) {
     // If the root is null, create a new node and make it the root
     if (root == null) {
       Node node = new Node();
       node.add(entry); // Assuming 'add' method adds an entry to the node
       root = node;
+      return true;
     } else {
       // Start the recursive insertion process from the root
-      insert(root, entry);
+      return insert(root, entry);
     }
   }
 
@@ -159,26 +157,28 @@ public class BTree {
    * @param node The node from which to start the insertion process.
    * @param entry The entry to insert into the B-tree.
    */
-  private void insert(Node node, Entry entry) {
+  private boolean insert(Node node, Command entry) {
+    boolean insertedSuccessfully = false;
     // If the node is a leaf (has no children)
     if (node.getChildNodes().isEmpty()) {
       // Add the entry to the node
       node.getEntries().add(entry); // Assume 'getEntries()' returns the list of entries in the node
-      Collections.sort(node.getEntries(), Comparator.comparingInt(e -> e.key)); // Ensure entries are sorted after insertion
-
+      Collections.sort(node.getEntries(), Comparator.comparingInt(e -> Integer.parseInt(e.getKey()))); // Ensure entries are sorted after insertion
+      insertedSuccessfully = true;
       // If the node exceeds the maximum number of entries, split the node
       if (node.getEntries().size() > m - 1) {
         split(node); // Assume 'split' method handles splitting the node
       }
     } else {
       // The node is not a leaf, find the correct child node to insert the entry
-      int index = Collections.binarySearch(node.getEntries(), entry, Comparator.comparingInt(e -> e.key));
+      int index = Collections.binarySearch(node.getEntries(), entry, Comparator.comparingInt(e ->Integer.parseInt(e.getKey())));
       if (index < 0) {
         // Entry is not present; find the child node where the entry should be inserted
-        insert(node.getChildNodes().get(-index - 1), entry);
+        insertedSuccessfully = insert(node.getChildNodes().get(-index - 1), entry);
       }
       // If entry is found in the node, this part of the code could handle updates or duplicates based on your B-tree's policy
     }
+    return insertedSuccessfully;
   }
 
   /**
@@ -189,9 +189,9 @@ public class BTree {
    */
   private void split(Node node) {
     // right node to promote
-    //int midIndex = node.getEntries().size() / 2; // Determine the median entry's index
+    int midIndex = node.getEntries().size() / 2; // Determine the median entry's index
     // left node to promote
-    int midIndex = (node.getEntries().size() - 1) / 2;
+    //int midIndex = (node.getEntries().size() - 1) / 2;
     // Create two new nodes to hold the entries before and after the median
     Node leftNode = new Node();
     Node rightNode = new Node();
@@ -227,7 +227,7 @@ public class BTree {
       // If the node is not the root, insert the median entry into the parent node
       Node parentNode = node.getParentNode();
       parentNode.getEntries().add(node.getEntries().get(midIndex));
-      Collections.sort(parentNode.getEntries(), Comparator.comparingInt(e -> e.key)); // Ensure parent entries are sorted
+      Collections.sort(parentNode.getEntries(), Comparator.comparingInt(e -> Integer.parseInt(e.getKey()))); // Ensure parent entries are sorted
 
       // Replace the original node with the two new nodes in the parent's children list
       int nodeIndexInParent = parentNode.getChildNodes().indexOf(node);
@@ -246,6 +246,37 @@ public class BTree {
     }
   }
 
+  /**
+   * Counts the number of nodes and entries in the B-Tree starting from the root node.
+   *
+   * @return An array where the first element is the total number of nodes and the second element is the total number of entries in the B-Tree.
+   */
+  public int[] countNodesAndEntries() {
+    TreeCounts counts = new TreeCounts();
+    countNodesAndEntries(root, counts);
+    return new int[]{counts.nodes, counts.entries};
+  }
+
+  /**
+   * Recursively counts the number of nodes and entries in the subtree rooted at the given node, updating the provided TreeCounts object.
+   *
+   * @param node The current node from which to count the number of nodes and entries in its subtree.
+   * @param counts The TreeCounts object that holds the current counts of nodes and entries.
+   */
+  private void countNodesAndEntries(Node node, TreeCounts counts) {
+    if (node != null) {
+      // Increment node count for the current node
+      counts.incrementNodes();
+
+      // Add the number of entries in the current node to the entries count
+      counts.addEntries(node.getEntries().size());
+
+      // Recursively count nodes and entries for each child
+      for (Node child : node.getChildNodes()) {
+        countNodesAndEntries(child, counts);
+      }
+    }
+  }
 
   @Override
   public String toString() {
@@ -271,8 +302,8 @@ public class BTree {
         // Print current node's entries and a pointer to child nodes
         builder.append(nodeIdentifiers.get(currentNode)).append(": [");
         StringJoiner joiner = new StringJoiner(", ");
-        for (Entry entry : currentNode.getEntries()) {
-          joiner.add(String.valueOf(entry.key));
+        for (Command entry : currentNode.getEntries()) {
+          joiner.add(entry.getKey());
         }
         builder.append(joiner.toString()).append("]");
 
@@ -298,5 +329,19 @@ public class BTree {
 
     return builder.toString();
   }
+  // a helper class
+  private static class TreeCounts {
+    int nodes = 0;
+    int entries = 0;
 
+    // Increment node count
+    void incrementNodes() {
+      nodes++;
+    }
+
+    // Increment entries count by the number of entries in a node
+    void addEntries(int entriesCount) {
+      entries += entriesCount;
+    }
+  }
 }

@@ -7,7 +7,7 @@ package proj1.lsmtree.impl;
 
 import proj1.lsmtree.CommandEnum;
 
-public abstract class Command {
+public abstract class Command implements Comparable<Command>{
 
   protected String key;
   protected String value;
@@ -31,6 +31,12 @@ public abstract class Command {
 
   public void setValue(String value) {
     this.value = value;
+  }
+
+  @Override
+  public int compareTo(Command o) {
+
+    return Integer.compare(Integer.parseInt(this.getKey()), Integer.parseInt(o.getKey()));
   }
 
   // Override toString for better readability and debugging

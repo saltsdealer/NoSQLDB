@@ -5,18 +5,26 @@ package proj1.btree;
  *@Title  :
  */
 
+import proj1.lsmtree.impl.Command;
+import proj1.lsmtree.model.InsertCommand;
+import proj1.lsmtree.model.SearchCommand;
+
 public class Test {
 
     public static void main(String[] args) {
-        int[] item = {1, 2, 3, 4, 5, 6, 7};
-        BTree tree = new BTree(4);
-        for (int i : item) {
-            tree.insert(new Entry(i, "-->" + i));
+        BTree bTree = new BTree(3);
+        System.out.println("Inserting entries...");
+        for (int i = 1; i <= 10; i++) {
+            InsertCommand entry = new InsertCommand(Integer.toString(i),"-->" + i);
+
+            System.out.println(bTree.insert(entry));
         }
-        System.out.println("----------------------printing the tree");
-        System.out.println(tree.toString());
-        //System.out.println(tree.searchEntry(1).toString());
-        System.out.println(tree.searchNode(2).toString());
-        System.out.println(tree.searchNode(3).toString());
+        System.out.println("\nB-Tree structure:");
+        System.out.println(bTree);
+        System.out.println(bTree.searchNode(10).getEntries());
+        System.out.println(bTree.searchEntry(10));
+        InsertCommand test = new InsertCommand("10",null);
+        System.out.println(bTree.insert(test));
+        System.out.println(bTree);
     }
 }

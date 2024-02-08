@@ -8,6 +8,7 @@ package proj1.btree;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import proj1.lsmtree.impl.Command;
 
 /**
  * Represents a node in a B-Tree structure. Each node contains a list of entries and can have child nodes.
@@ -17,7 +18,8 @@ import java.util.List;
 class Node implements Comparable<Node> {
 
     // List of entries within the node. Each entry contains a key-value pair.
-    private final List<Entry> entries;
+    // private final List<Entry> entries;
+    private final List<Command> entries;
 
     // List of child nodes. This allows the B-Tree to have a hierarchical structure.
     private final List<Node> childNodes;
@@ -36,11 +38,11 @@ class Node implements Comparable<Node> {
     /**
      * Retrieves the list of entries within this node. Each entry in the list contains a key-value pair.
      *
-     * @return A list of {@link Entry} objects representing the entries within this node. The returned list
+     * @return A list of {@link Command} objects representing the entries within this node. The returned list
      *         is a direct reference to the internal list, so changes to the returned list will affect the node's
      *         internal state.
      */
-    public List<Entry> getEntries() {
+    public List<Command> getEntries() {
         return entries;
     }
 
@@ -71,7 +73,7 @@ class Node implements Comparable<Node> {
      * @param entry The entry to be added to the node.
      * @return The node itself, allowing for method chaining.
      */
-    public Node add(Entry entry) {
+    public Node add(Command entry) {
         entries.add(entry);
         Collections.sort(entries); // Ensure entries are sorted after adding a new one.
         return this;
@@ -99,7 +101,8 @@ class Node implements Comparable<Node> {
      */
     @Override
     public int compareTo(Node o) {
-        return Integer.compare(entries.get(0).getKey(), o.getEntries().get(0).getKey());
+
+        return Integer.compare(Integer.parseInt(entries.get(0).getKey()), Integer.parseInt(o.getEntries().get(0).getKey()));
     }
 
 
@@ -113,8 +116,8 @@ class Node implements Comparable<Node> {
 
         // Add information about entries in the current node
         builder.append("Node Entries: ");
-        for (Entry entry : entries) {
-            builder.append(entry.key).append(", "); // Using entry's key directly
+        for (Command entry : entries) {
+            builder.append(entry.getKey()).append(", "); // Using entry's key directly
         }
 
         // Trim the last comma and space if there are entries
@@ -126,8 +129,8 @@ class Node implements Comparable<Node> {
         builder.append("\nChild Nodes' Entries: [");
         for (Node child : childNodes) {
             builder.append("("); // Start of child node's entries
-            for (Entry entry : child.entries) {
-                builder.append(entry.key).append(", "); // Append each entry's key
+            for (Command entry : child.entries) {
+                builder.append(entry.getKey()).append(", "); // Append each entry's key
             }
 
             // Trim the last comma and space if the child has entries
