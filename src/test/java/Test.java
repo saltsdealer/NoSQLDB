@@ -22,7 +22,6 @@ public class Test {
         System.out.println("\nB-Tree structure:");
         System.out.println(bTree);
         System.out.println(bTree.searchNode(10).getEntries());
-        System.out.println(bTree.searchEntry(10));
         InsertCommand test = new InsertCommand("10",null);
         System.out.println(bTree.insert(test));
         System.out.println(bTree);
