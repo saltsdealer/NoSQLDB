@@ -33,11 +33,9 @@ public class InsertCommand extends Command {
     return CommandEnum.INSERT;
   }
 
+  // apparently this is only for proj demo
   @Override
   public String toString() {
-    return "InsertCommand{" +
-        "value='" + value + '\'' +
-        ", key='" + key + '\'' +
-        '}';
+    return key;
   }
 }

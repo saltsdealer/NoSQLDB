@@ -32,6 +32,9 @@ public class BTree {
   // The root node of the B-Tree, which may be null if the tree is empty.
   private Node root;
 
+  private int currentId;
+
+
   /**
    * Initializes a B-Tree with a specified order. The order of the tree defines the maximum number
    * of children that each node can have.
@@ -45,6 +48,8 @@ public class BTree {
     this.m = m;
     // Calculate minimum number of keys in a node
     this.min = (int) Math.ceil(m / 2.0) - 1;
+
+
   }
 
   /**
@@ -65,7 +70,7 @@ public class BTree {
    * @return The entry with the specified key if found, otherwise {@code null}.
    */
   public Command searchEntry(int key) {
-    return searchEntry(root, key);
+    return searchEntry(root, key,"");
   }
 
   /**
@@ -75,20 +80,33 @@ public class BTree {
    * @param key The key of the entry to search for.
    * @return The entry with the specified key if it is found within this subtree, otherwise {@code null}.
    */
-  private Command searchEntry(Node node, int key) {
+  private Command searchEntry(Node node, int key, String path) {
+    // Base case: when the node is null, meaning the search has reached a leaf without finding the key
     if (node == null) {
+      System.out.println("No Key Found");
       return null;
     }
+
     int index = Collections.binarySearch(node.getEntries(), new SearchCommand(String.valueOf(key)));
     if (index >= 0) {
+      // Key found, construct the path and print it
+      String currentPath = path + node.getNumber(); // Append the current node's number to the path
+      System.out.println("Key found at path: " + currentPath);
       return node.getEntries().get(index);
     } else {
-      if (node.getChildNodes().size() == 0) {
+      // Key not found in the current node, proceed to the appropriate child node if any
+      if (node.getChildNodes().isEmpty()) {
+        // If there are no child nodes and the key wasn't found, it means the search has ended
+        // "No Key Found" should be printed after the recursion ends, not here
         return null;
       }
-      return searchEntry(node.getChildNodes().get(-index - 1), key);
+      // Update the path for the next level of recursion
+      String nextPath = path + node.getNumber() + " -> ";
+      // Recur to the next child node that could contain the key
+      return searchEntry(node.getChildNodes().get(-index - 1), key, nextPath);
     }
   }
+
 
   /**
    * Initiates a search for a node containing the specified key, starting from the root node.
@@ -143,6 +161,8 @@ public class BTree {
       Node node = new Node();
       node.add(entry); // Assuming 'add' method adds an entry to the node
       root = node;
+      root.setNumber(0);
+      this.currentId = 0;
       return true;
     } else {
       // Start the recursive insertion process from the root
@@ -188,63 +208,63 @@ public class BTree {
    * @param node The node to be split.
    */
   private void split(Node node) {
-    // right node to promote
-    int midIndex = node.getEntries().size() / 2; // Determine the median entry's index
-    // left node to promote
-    //int midIndex = (node.getEntries().size() - 1) / 2;
-    // Create two new nodes to hold the entries before and after the median
+    // right
+    // int midIndex = node.getEntries().size() / 2;
+    // left
+    int midIndex = (node.getEntries().size()-1) / 2;
     Node leftNode = new Node();
     Node rightNode = new Node();
 
-    // Distribute the entries into the new nodes
     leftNode.getEntries().addAll(node.getEntries().subList(0, midIndex));
     rightNode.getEntries().addAll(node.getEntries().subList(midIndex + 1, node.getEntries().size()));
 
-    // Handle the child nodes if this is not a leaf node
     if (!node.getChildNodes().isEmpty()) {
-      // Distribute the child nodes into the new nodes
       leftNode.getChildNodes().addAll(node.getChildNodes().subList(0, midIndex + 1));
       rightNode.getChildNodes().addAll(node.getChildNodes().subList(midIndex + 1, node.getChildNodes().size()));
 
-      // Update parent references for the child nodes
       leftNode.getChildNodes().forEach(child -> child.setParentNode(leftNode));
       rightNode.getChildNodes().forEach(child -> child.setParentNode(rightNode));
-    }
 
-    // Handle the case where the node being split is the root
+    }
+    // left split should be the orginial node's id
+    // right split should be the new node
+    leftNode.setNumber(node.getNumber());
+    rightNode.setNumber(++this.currentId);
+    // Assign numbers to nodes right before they are added to the tree structure.
+
     if (node.getParentNode() == null) {
-      // Create a new root node and add the median entry
       Node newRoot = new Node();
+      newRoot.setNumber(++this.currentId);
       newRoot.getEntries().add(node.getEntries().get(midIndex));
       newRoot.getChildNodes().add(leftNode);
       newRoot.getChildNodes().add(rightNode);
 
-      // Update the root reference and parent references for the new nodes
       root = newRoot;
       leftNode.setParentNode(root);
       rightNode.setParentNode(root);
+
+      // Assign number to newRoot only when it's confirmed to be part of the tree.
+      newRoot.setNumber(rightNode.getNumber()+1);
     } else {
-      // If the node is not the root, insert the median entry into the parent node
       Node parentNode = node.getParentNode();
       parentNode.getEntries().add(node.getEntries().get(midIndex));
-      Collections.sort(parentNode.getEntries(), Comparator.comparingInt(e -> Integer.parseInt(e.getKey()))); // Ensure parent entries are sorted
+      Collections.sort(parentNode.getEntries(), Comparator.comparingInt(e -> Integer.parseInt(e.getKey())));
 
-      // Replace the original node with the two new nodes in the parent's children list
       int nodeIndexInParent = parentNode.getChildNodes().indexOf(node);
       parentNode.getChildNodes().remove(nodeIndexInParent);
       parentNode.getChildNodes().add(nodeIndexInParent, rightNode);
       parentNode.getChildNodes().add(nodeIndexInParent, leftNode);
 
-      // Update parent references for the new nodes
       leftNode.setParentNode(parentNode);
       rightNode.setParentNode(parentNode);
 
-      // Check if the parent node needs to be split
       if (parentNode.getEntries().size() > m - 1) {
         split(parentNode);
       }
     }
   }
+
+
 
   /**
    * Counts the number of nodes and entries in the B-Tree starting from the root node.
@@ -278,6 +298,28 @@ public class BTree {
     }
   }
 
+  // Method to start the process of setting node IDs from the root
+//  public void setNodeIds() {
+//// Reset currentId to 0 every time setNodeIds is called
+//    setNodeIds(root);
+//  }
+//
+//  // Recursive helper method to set node IDs without needing a return value or arguments
+//  private void setNodeIds(Node node) {
+//    if (node == null) {
+//      return;
+//    }
+//
+//    // Set the current node's ID and increment currentId for the next node
+//    node.setNumber(currentId++);
+//
+//    // Recursively set IDs for child nodes
+//    for (Node child : node.getChildNodes()) {
+//      setNodeIds(child);
+//    }
+//  }
+
+
   @Override
   public String toString() {
     if (root == null) {
@@ -286,24 +328,26 @@ public class BTree {
 
     StringBuilder builder = new StringBuilder();
     Queue<Node> queue = new LinkedList<>();
-    HashMap<Node, String> nodeIdentifiers = new HashMap<>();
-    int nodeId = 0;
 
     // Start with the root node
     queue.offer(root);
-    nodeIdentifiers.put(root, "N" + nodeId++);
+
+    int l = 0;
 
     while (!queue.isEmpty()) {
+
       int levelSize = queue.size();
+      builder.append("L-"+ l++ + ": ");
       for (int i = 0; i < levelSize; i++) {
         Node currentNode = queue.poll();
         assert currentNode != null;
 
-        // Print current node's entries and a pointer to child nodes
-        builder.append(nodeIdentifiers.get(currentNode)).append(": [");
+        // Use the nodeId for the current node
+        builder.append("N").append(currentNode.getNumber()).append(": [");
+
         StringJoiner joiner = new StringJoiner(", ");
         for (Command entry : currentNode.getEntries()) {
-          joiner.add(entry.getKey());
+          joiner.add(entry.toString());
         }
         builder.append(joiner.toString()).append("]");
 
@@ -312,9 +356,7 @@ public class BTree {
           builder.append(" -> {");
           StringJoiner childJoiner = new StringJoiner(", ");
           for (Node child : currentNode.getChildNodes()) {
-            String childIdentifier = "N" + nodeId++;
-            nodeIdentifiers.put(child, childIdentifier);
-            childJoiner.add(childIdentifier);
+            childJoiner.add("N" + child.getNumber());
             queue.offer(child); // Add child node to the queue for processing
           }
           builder.append(childJoiner.toString()).append("}");
@@ -329,6 +371,7 @@ public class BTree {
 
     return builder.toString();
   }
+
   // a helper class
   private static class TreeCounts {
     int nodes = 0;

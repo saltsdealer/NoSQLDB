@@ -27,12 +27,24 @@ class Node implements Comparable<Node> {
     // Reference to the parent node of this node. Root node has a null parent.
     private Node parentNode;
 
+    // node number, not the most useful thing, but for proj demo
+    private int nodeId;
+
+    public int getNumber() {
+        return nodeId;
+    }
+
+    public void setNumber(int nodeId) {
+        this.nodeId = nodeId;
+    }
+
     /**
      * Constructs a new, empty Node with no entries and no child nodes.
      */
     public Node() {
         entries = new ArrayList<>();
         childNodes = new ArrayList<>();
+        nodeId = 0;
     }
 
     /**
