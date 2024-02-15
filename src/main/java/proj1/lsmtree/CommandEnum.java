@@ -1,10 +1,8 @@
-package proj1.lsmtree;
-/*
- *@Author : Tairan Ren
- *@Date   : 2024/2/7 0:07
- *@Title  :
- */
+// Group 8:
+// Tairan Ren 002772875
+// Quan Yuan 002703792
 
+package proj1.lsmtree;
 
 /**
  * Enum representing various database commands.

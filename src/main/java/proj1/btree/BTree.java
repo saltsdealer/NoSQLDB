@@ -1,9 +1,8 @@
+// Group 8:
+// Tairan Ren 002772875
+// Quan Yuan 002703792
+
 package proj1.btree;
-/*
- *@Author : Tairan Ren
- *@Date   : 2024/2/5 21:49
- *@Title  :
- */
 
 import java.util.Collections;
 import java.util.Comparator;

@@ -1,10 +1,8 @@
-package proj1.lsmtree.impl;
-/*
- *@Author : Tairan Ren
- *@Date   : 2024/2/7 21:27
- *@Title  :
- */
+// Group 8:
+// Tairan Ren 002772875
+// Quan Yuan 002703792
 
+package proj1.lsmtree.impl;
 
 import proj1.lsmtree.impl.Command;
 import proj1.lsmtree.impl.MTableSkipList;

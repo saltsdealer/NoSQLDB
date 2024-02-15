@@ -1,8 +1,14 @@
+// Group 8:
+// Tairan Ren 002772875
+// Quan Yuan 002703792
+
 package proj1.btree;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Scanner;
 
 import proj1.lsmtree.impl.Command;
@@ -30,9 +36,6 @@ public class Demo {
     System.out.println(bTree.toString());
   }
 
-  public static void searchInTree(String key, BTree bTree){
-
-  }
 
   public static void main(String[] args) {
 
@@ -57,7 +60,7 @@ public class Demo {
       if (userInput.equals("1")){
         System.out.print("Please enter input data file name: ");
         String fileName = scanner.nextLine();
-        buildTree(fileName, bTree);
+        buildTree("./src/main/java/proj1/btree/" + fileName, bTree);
       } else if (userInput.equals("2")){
         System.out.print("Key: ");
         String key = scanner.nextLine();
@@ -69,11 +72,12 @@ public class Demo {
         System.out.print("Key to search: ");
         String keyString = scanner.nextLine();
         int key = Integer.parseInt(keyString);
-        bTree.searchEntry(key);
-        System.out.println(bTree.toString());
+        System.out.println(bTree.searchEntry(key));
       } else {
         break;
       }
+      System.out.print("1 for build, 2 for insert, 3 for search, others to quit: ");
+      userInput = scanner.nextLine();
     }
 
     scanner.close();
