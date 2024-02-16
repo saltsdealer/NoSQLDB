@@ -16,7 +16,7 @@ This versatility opens avenues for incorporating various data structures for ind
 ### 2.How to Run:
 
 ```
-
+cd src/main/java/proj1
 ```
 Download the code to a local directory, as this is created with maven framework, open the directory with IntelliJ idea or eclipse would be an easier way to run. For now the testing data is hardcoded in the same file.
 
