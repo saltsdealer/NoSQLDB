@@ -77,6 +77,7 @@ public class SkipList<K extends Comparable<K>, V> {
   // Inserts a new key-value pair into the SkipList
   public void insert(K key, V value) {
     if(search(key,false))
+
       return;
     // Path stack to track potential insertion points
     Stack<Node> potentialStack = new Stack<>();
