@@ -1,9 +1,8 @@
+// Group 8:
+// Tairan Ren 002772875
+// Quan Yuan 002703792
+
 package proj1.SkipList;
-/*
- *@Author : Tairan Ren
- *@Date   : 2024/2/14 11:43
- *@Title  :
- */
 
 public class Node <K extends Comparable<K>, V>{
     protected K key;

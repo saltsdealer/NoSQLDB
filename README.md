@@ -1,6 +1,7 @@
 # Group 8:
-### Quan Yuan 002703792
 ### Tairan Ren 002772875
+### Quan Yuan 002703792
+
 
 ## Project 1: Index 
 
@@ -15,16 +16,20 @@ This versatility opens avenues for incorporating various data structures for ind
 ### 2.How to Run:
 
 ```
-cd src\test\java\Test.java
-
+cd src/main/java/proj1
 ```
-Download the code to a local directory, as this is created with maven framework, open the directory with IntelliJ idea or eclipse would be an easier way to run. For now the testing data is hardcoded in the same file, a read from file method is provided in src\main\java\btree\Demo.java as well.
+Download the code to a local directory, as this is created with maven framework, open the directory with IntelliJ idea or eclipse would be an easier way to run. For now the testing data is hardcoded in the same file.
 
 Click the run button on Test.java, and then input the file name, and desired node size, or do it via java commands, either way is fine.
 
 The Class utilizes console printed control panel which first ask users to select which data structure to use, and then ask users for specific operations to run, which for now, includes the basic operation like insertion and searching for index.
 
  The testing data for demo is currently hard coded, which will be modified to file based, the read file method was also provided in btree package demo.java.
+
+Note: 
+
+A read from file method is provided in src\main\java\btree\Demo.java as well. If want to use self-defined data file, please put the file in the directory "src/main/java/proj1/btree/", which is the same directory with Demo.java. 
+
 
 ![](https://i.postimg.cc/T2K2qhN0/image.png)
 
@@ -158,10 +163,10 @@ Intellj Idea,
 
 
 ## Resources:
-- [B-tree Visualization]:(https://www.cs.usfca.edu/~galles/visualization/BTree.html)
+- [B-tree Visualization](https://www.cs.usfca.edu/~galles/visualization/BTree.html)
 - B-tree pseudocode on Canvas
-- [LsmTree]: https://www.cs.umb.edu/%7Eponeil/lsmtree.pdf
-- [SkipTree]: https://www.geeksforgeeks.org/skip-list/
+- [LsmTree](https://www.cs.umb.edu/%7Eponeil/lsmtree.pdf)
+- [SkipTree](https://www.geeksforgeeks.org/skip-list/)
 
   
 
