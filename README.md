@@ -91,7 +91,71 @@ As it is involving user inputs, the input tolerances is also not added to the co
 
 Only the basic functions is inserted in this stage, may consider adding deletion and change functions to the structures later.
 
-  
+## Project 2 ： 
+
+### 1. Design and Proposal
+
+Name:
+
+LSM DB
+
+Type of index:
+
+Interchangeable, BTree or SkipList, or perhaps doing a comparison between the two self-implemented with built in structures like treemap etc,.
+
+Test Data :
+
+This project implemented it's own kv structure so basically could accommodate any data. 
+
+The provided movies data will be used as testing data.
+
+Key:
+
+As long as the key is comparable, then it doesn't have to be integer. 
+
+For this stage of the project, it assumes that keys are integer. For further implementation, it will consider using timestamp or something similar as keys.
+
+Size of record:
+
+from the given movies.csv, we assume the upper bound for each record is limited to 128 bytes.
+
+Sample data :
+
+| ID   | TITLE                              | GENRE                  |
+| ---- | ---------------------------------- | ---------------------- |
+| 3    | Grumpier Old Men (1995)            | Comedy\|Romance        |
+| 4    | Waiting to Exhale (1995)           | Comedy\|Drama\|Romance |
+| 5    | Father of the Bride Part II (1995) | Comedy                 |
+
+Allocation Method :
+
+The key index facilitates a form of direct access by storing the offset of each key within the file, which can be seen as a simplified form of indexed allocation, but it's specific to the SSTable structure and not a general-purpose file system indexed allocation method.
+
+Free block method :
+
+At this stage, it doesn't seem to be a must to use free block management, but we assume a simple bitmap could be added.
+
+Overview of the LSM strucuture:
+
+for the memory tables, structures are given in the previous chapters, for the disk drive file format, we intend to implement sstable, which looks like :
+
+| data                       | index                  | fcb             |
+| -------------------------- | ---------------------- | --------------- |
+| {"3":{"..." : "...", ...}} | {"3" : "OFFESETS" ...} | Meta(Date, ...) |
+
+ A typical lsm would have multiple levels, for simplicity, , this project reduce it to this:
+
+![](https://img2.imgtp.com/2024/02/26/Gixt0ud6.png)
+
+Developing Env:
+
+Java 11. 
+
+Intellj Idea,
+
+[Github]: https://github.com/saltsdealer/NoSQLDB
+
+
 
 ## Resources:
 - [B-tree Visualization]:(https://www.cs.usfca.edu/~galles/visualization/BTree.html)
