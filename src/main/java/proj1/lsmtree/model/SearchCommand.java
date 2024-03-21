@@ -13,6 +13,7 @@ public class SearchCommand extends Command {
   String key;
 
   public SearchCommand(String key) {
+    super(key,null);
     this.key = key;
   }
 

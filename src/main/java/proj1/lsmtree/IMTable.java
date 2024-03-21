@@ -4,12 +4,13 @@
 
 package proj1.lsmtree;
 
+import java.util.Map;
 import proj1.lsmtree.impl.Command;
 import proj1.lsmtree.model.DelCommand;
 import proj1.lsmtree.model.InsertCommand;
 import proj1.lsmtree.model.SetCommand;
 
-public interface IMTable {
+public interface IMTable<T> extends Iterable<T>{
   /**
    * Stores or updates a key-value pair in the Memtable using a SetCommand.
    *
@@ -47,5 +48,5 @@ public interface IMTable {
    */
   int size();
 
-
+  T getRawData();
 }

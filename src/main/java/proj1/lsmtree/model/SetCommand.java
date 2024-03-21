@@ -11,7 +11,7 @@ import proj1.lsmtree.impl.Command;
 public class SetCommand extends Command {
 
     public SetCommand(String key,String value){
-
+        super(key, value);
         this.key = key;
         this.value = value;
     }

@@ -4,6 +4,7 @@
 
 package proj1.lsmtree.impl;
 
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import proj1.lsmtree.impl.Command;
 import proj1.lsmtree.impl.MTableSkipList;
 import proj1.lsmtree.model.DelCommand;
@@ -16,6 +17,7 @@ public class LSMEngineList {
   private MTableSkipList writable;
   private MTableSkipList readOnly;
   private int storeThreshold;
+  private ReentrantReadWriteLock indexLock = new ReentrantReadWriteLock();
 
 //  private List<ISSTable> issTableList;
 //  private
@@ -101,6 +103,7 @@ public class LSMEngineList {
     try {
       readOnly = writable; // Make the current writable memtable read-only
       writable = new MTableSkipList(); // Create a new writable memtable
+      //ISSTable issTable = new SSTable();
       // this is where sstable should be triggered to disk
     } catch (Exception e) {
       e.printStackTrace();

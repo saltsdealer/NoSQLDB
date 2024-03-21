@@ -7,20 +7,28 @@ package proj1.btree;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Queue;
+import java.util.Spliterator;
+import java.util.Stack;
 import java.util.StringJoiner;
+import java.util.function.Consumer;
+import proj1.lsmtree.IMTable;
 import proj1.lsmtree.impl.Command;
+import proj1.lsmtree.model.DelCommand;
 import proj1.lsmtree.model.InsertCommand;
 import proj1.lsmtree.model.SearchCommand;
+import proj1.lsmtree.model.SetCommand;
 
 /**
  * Represents a B-Tree, a self-balancing tree data structure that maintains sorted data in a way that
  * allows for efficient insertion, deletion, and search operations. B-Trees are optimized for systems
  * that read and write large blocks of data. They are commonly used in databases and file systems.
  */
-public class BTree {
+public class BTree implements IMTable {
 
   // The order of the B-Tree, determining the range of children per node.
   private final int m;
@@ -319,6 +327,7 @@ public class BTree {
 //  }
 
 
+
   @Override
   public String toString() {
     if (root == null) {
@@ -371,6 +380,49 @@ public class BTree {
     return builder.toString();
   }
 
+  @Override
+  public void set(SetCommand setCommand) {
+
+  }
+
+  @Override
+  public void del(DelCommand deleteCommand) {
+
+  }
+
+  @Override
+  public boolean insert(InsertCommand insertCommand) {
+    return false;
+  }
+
+  @Override
+  public Command get(String key) {
+    return root.getEntries().get(0);
+  }
+
+  @Override
+  public int size() {
+    return 0;
+  }
+
+  @Override
+  public Object getRawData() {
+    return null;
+  }
+
+  @Override
+  public Iterator<Node> iterator() {
+    return new BTreeIterator(root); // Assuming 'root' is the root node of your BTree
+  }
+  @Override
+  public void forEach(Consumer action) {
+  }
+
+  @Override
+  public Spliterator spliterator() {
+    return null;
+  }
+
   // a helper class
   private static class TreeCounts {
     int nodes = 0;
@@ -384,6 +436,44 @@ public class BTree {
     // Increment entries count by the number of entries in a node
     void addEntries(int entriesCount) {
       entries += entriesCount;
+    }
+  }
+
+
+  private class BTreeIterator implements Iterator<Node> {
+    private Stack<Node> stack = new Stack<>();
+
+    public BTreeIterator(Node root) {
+      pushLeftChildren(root);
+    }
+
+    private void pushLeftChildren(Node node) {
+      while (node != null) {
+        stack.push(node);
+        if (!node.getChildNodes().isEmpty()) {
+          node = node.getChildNodes().get(0); // Assuming the first child is the leftmost child
+        } else {
+          break; // No more children, exit the loop
+        }
+      }
+    }
+
+    @Override
+    public boolean hasNext() {
+      return !stack.isEmpty();
+    }
+
+    @Override
+    public Node next() {
+      if (!hasNext()) {
+        throw new NoSuchElementException();
+      }
+      Node currentNode = stack.pop();
+      if (!currentNode.getChildNodes().isEmpty() && currentNode.getChildNodes().size() > 1) {
+        // If the node has more than one child, push the left children of the node's right child
+        pushLeftChildren(currentNode.getChildNodes().get(1)); // Assuming the second child is the right child
+      }
+      return currentNode;
     }
   }
 }

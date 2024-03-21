@@ -4,13 +4,18 @@
 
 package proj1.lsmtree.impl;
 
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Spliterator;
+import java.util.function.Consumer;
 import proj1.btree.BTree;
 import proj1.lsmtree.IMTable;
 import proj1.lsmtree.model.DelCommand;
 import proj1.lsmtree.model.InsertCommand;
 import proj1.lsmtree.model.SetCommand;
 
-public class MTableBTree implements IMTable {
+// can be obsoleted
+public class MTableBTree {
 
     private BTree bTree;
 
@@ -20,23 +25,23 @@ public class MTableBTree implements IMTable {
         this.bTree = new BTree(m);
     }
 
-    @Override
+
     public void set(SetCommand setCommand) {
         // not provided
     }
 
-    @Override
+
     public void del(DelCommand deleteCommand) {
         // not provided
     }
 
-    @Override
+
     public boolean insert(InsertCommand insertCommand) {
 
         return bTree.insert(insertCommand);
     }
 
-    @Override
+
     public Command get(String key) {
         return bTree.searchEntry(Integer.parseInt(key));
     }
@@ -44,10 +49,15 @@ public class MTableBTree implements IMTable {
     public Command searchNode(String key) {
         return bTree.searchEntry(Integer.parseInt(key));
     }
-    @Override
+
     public int size() {
         int nodes = bTree.countNodesAndEntries()[0];
         return nodes;
+    }
+
+
+    public BTree getRawData() {
+        return bTree;
     }
 
     public int sizeEntries() {
@@ -66,4 +76,5 @@ public class MTableBTree implements IMTable {
             bTree.toString() +
             '}';
     }
+
 }

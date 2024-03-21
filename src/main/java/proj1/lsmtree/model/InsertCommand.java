@@ -14,9 +14,12 @@ public class InsertCommand extends Command {
   String key;
 
   public InsertCommand(String key, String value) {
+    super(key, value);
     this.key = key;
     this.value = value;
   }
+
+
 
   @Override
   public String getValue() {
@@ -36,6 +39,6 @@ public class InsertCommand extends Command {
   // apparently this is only for proj demo
   @Override
   public String toString() {
-    return key;
+    return "Key: " + key + ", Value: " + value;
   }
 }

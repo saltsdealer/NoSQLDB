@@ -77,9 +77,10 @@ public class Console {
         this.flag = 2;
         System.out.println("Insert the probability of promotion:");
         double prob = Double.parseDouble(scanner.nextLine());
-        SkipList<Integer, String> skipList = new SkipList<>(prob);
+        SkipList skipList = new SkipList(prob);
         for (int value : list) {
-            skipList.insert(value, "<>");
+
+            skipList.insert(new InsertCommand(String.valueOf(value),"<>"));
         }
         this.dataStructure = skipList;
         System.out.println(skipList);
@@ -95,7 +96,7 @@ public class Console {
                 System.out.println(result != null ? "Found: " + result : "No Key Found");
             } else if (flag == 2) {
                 SkipList skipList = (SkipList) this.dataStructure;
-                boolean found = skipList.search(Integer.parseInt(searchKey),true);
+                boolean found = skipList.search(searchKey,true);
                 System.out.println(found ? "Key Found" : "No Key Found");
             }
         } catch (NumberFormatException e) {
@@ -115,7 +116,7 @@ public class Console {
                 bTree.insert(new InsertCommand(key, value));
             } else if (flag == 2) {
                 SkipList skipList = (SkipList) this.dataStructure;
-                skipList.insert(Integer.parseInt(key), value);
+                skipList.insert(new InsertCommand(key,value));
             }
             System.out.println(this.dataStructure);
         } catch (NumberFormatException e) {

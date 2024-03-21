@@ -11,6 +11,7 @@ import proj1.lsmtree.impl.Command;
 public class DelCommand extends Command {
 
     public DelCommand(String key){
+        super(key,null);
         this.key  = key;
 
     }

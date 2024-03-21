@@ -4,24 +4,32 @@
 
 package proj1.SkipList;
 
+import java.util.Iterator;
 import java.util.Stack;
+import proj1.lsmtree.IMTable;
+import proj1.lsmtree.impl.Command;
+import proj1.lsmtree.model.DelCommand;
+import proj1.lsmtree.model.InsertCommand;
+import proj1.lsmtree.model.SetCommand;
 
 
 // SkipList implementation supporting generic key-value pairs
-public class SkipList<K extends Comparable<K>, V> {
+public class SkipList implements IMTable {
 
 
   private Node head;
   private double prob; // Probability factor
-  private int nodeCounter; // Counter to keep track of the number of nodes
+  private int nodeCounter = 0; // Counter to keep track of the number of nodes
+
 
   public SkipList(double prob) {
     this.prob = prob; // Probability factor for determining level promotion
     // Use a minimum key value at the head for comparison
     this.head = new Node(null, null);
+
   }
   // Searches for a key in the SkipList, with an option to print the search path
-  public boolean search(K key,boolean printPath) {
+  public boolean search(String key,boolean printPath) {
     Node p = head;
     StringBuilder path = new StringBuilder();
     boolean found = false;
@@ -58,70 +66,175 @@ public class SkipList<K extends Comparable<K>, V> {
 
     return found;
   }
+
+  public Node search(String key) {
+    Node p = head;
+    // Iterate down through levels starting from the topmost level
+    while (p != null) {
+      // Check if the current node's key matches the search key
+      if (p.key != null && p.key.compareTo(key) == 0) {
+        return p; // Key found, return the node
+      }
+
+      // Determine the direction of the search:
+      // Move down if at the end of the level or if the next key is greater than the search key
+      if (p.next == null || (p.next.key != null && p.next.key.compareTo(key) > 0)) {
+        p = p.down;
+      } else {
+        // Move to the next node if the next key is less than or equal to the search key
+        p = p.next;
+      }
+    }
+
+    // Key not found, return null
+    return null;
+  }
+
   // Deletes a node with the specified key from the SkipList
-//  public void delete(K key) {
-//    Node p = head;
-//    while (p != null) {
-//      if (p.next == null || p.next.key.compareTo(key) > 0) {
-//        p = p.down;
-//      } else if (p.next.key.compareTo(key) == 0) {
-//        p.next = p.next.next; // Remove the node
-//        p = p.down;
-//      } else {
-//        p = p.next;
-//      }
-//    }
-//  }
-  // Inserts a new key-value pair into the SkipList
-  public void insert(K key, V value) {
-    if(search(key,false))
-
-      return;
-    // Path stack to track potential insertion points
-    Stack<Node> potentialStack = new Stack<>();
-    Node current = head;
-
-    // Traverse down the skip list to locate the correct insertion point
-    while (current != null){
-      if(current.next == null || current.next.key.compareTo(key) > 0){
-        potentialStack.add(current);
-        current = current.down;
-      }else current = current.next;
-    }
-    Node down = null;
-    boolean flag = true;
-
-    // Insert the new node at the identified levels
-    while(!potentialStack.isEmpty()){
-      Node previous = potentialStack.pop();
-      double num = Math.random();
-
-      // Perform insertion if it's the first insertion or the random number is below the threshold
-      if(flag || num < this.prob){
-        flag = false;
-        Node temp = new Node(key, value);
-        if(previous.next == null) previous.next = temp;
-        else{
-          temp.next = previous.next;
-          previous.next = temp;
-        }
-        temp.down = down;
-        down = temp;
-      }else
-        return;
-    }
-
-    // Consider adding a new top level for the skip list
-    double num = Math.random();
-    if(num < this.prob){
-      Node temp = new Node(key,value);
-      Node minNode = new Node(null,null);
-      minNode.down = head;
-      minNode.next = temp;
-      temp.down = down;
-      head = minNode;
+  @Override
+  public void del(DelCommand d) {
+    String key = d.getKey();
+    Node p = head;
+    while (p != null) {
+      if (p.next == null || p.next.key.compareTo(key) > 0) {
+        p = p.down;
+      } else if (p.next.key.compareTo(key) == 0) {
+        p.next = p.next.next; // Remove the node
+        p = p.down;
+      } else {
+        p = p.next;
+      }
     }
   }
+  // Inserts a new key-value pair into the SkipList
+  @Override
+  public boolean insert(InsertCommand insertCommand) {
+    String key = insertCommand.getKey();
+    String value = insertCommand.getValue();
+
+
+    Node node = search(key);
+    if (node != null) {
+      node.setVal(value);
+    }
+    try{
+      // Path stack to track potential insertion points
+      Stack<Node> potentialStack = new Stack<>();
+      Node current = head;
+
+      // Traverse down the skip list to locate the correct insertion point
+      while (current != null){
+        if(current.next == null || current.next.key.compareTo(key) > 0){
+          potentialStack.add(current);
+          current = current.down;
+        }else current = current.next;
+      }
+      Node down = null;
+      boolean flag = true;
+
+      // Insert the new node at the identified levels
+      while(!potentialStack.isEmpty()){
+        Node previous = potentialStack.pop();
+        double num = Math.random();
+
+        // Perform insertion if it's the first insertion or the random number is below the threshold
+        if(flag || num < this.prob){
+          flag = false;
+          Node temp = new Node(key, value);
+          if(previous.next == null) previous.next = temp;
+          else{
+            temp.next = previous.next;
+            previous.next = temp;
+          }
+          temp.down = down;
+          down = temp;
+        }else
+          return true;
+      }
+
+      // Consider adding a new top level for the skip list
+      double num = Math.random();
+      if(num < this.prob){
+        Node temp = new Node( key,value);
+        Node minNode = new Node(null,null);
+        minNode.down = head;
+        minNode.next = temp;
+        temp.down = down;
+        head = minNode;
+        nodeCounter += 2;
+      }
+      return true;
+    } catch (Exception e) {
+      System.out.println(e);
+      return false;
+    }
+
+  }
+
+
+
+
+  @Override
+  public void set(SetCommand setCommand) {
+
+  }
+
+  // getting the first node
+  @Override
+  public Command get(String key) {
+    Node current = head;
+
+    // Traverse down to the bottom level
+    while (current.down != null) {
+      current = current.down;
+    }
+
+    // Move right at the bottom level to find the first node with a non-null value
+    while (current.next != null && current.next.val == null) {
+      current = current.next;
+    }
+
+    // Return the first node with a non-null value at the bottom level, or the dummy head if all are null
+    return current.next.getCommand();
+  }
+
+  // getting the last node
+  public Command getPenultimate() {
+    Node current = head;
+
+    // Traverse down to the bottom level
+    while (current.down != null) {
+      current = current.down;
+    }
+
+    // Move right at the bottom level to reach the last non-null node
+    while (current.next != null && current.next.next != null) {
+      current = current.next;
+    }
+
+    // At this point, 'current' should be the node before the last node
+    // Check if 'current' is not the dummy head itself
+    if (current != head) {
+      return current.getCommand(); // Return the command of the penultimate node
+    } else {
+      return null; // If 'current' is still the dummy head, it means the list is empty or has only one node
+    }
+  }
+
+  public int size(){
+    return nodeCounter;
+  }
+
+  @Override
+  public Object getRawData() {
+    Node current = head;
+// Move to the lowest level
+    while (current.down != null) {
+      current = current.down;
+    }
+    return current;
+  }
+
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
@@ -137,5 +250,36 @@ public class SkipList<K extends Comparable<K>, V> {
       p = p.down;
     }
     return sb.toString();
+  }
+
+  public Iterator<Node> iterator() {
+    return new SkipListIterator();
+  }
+
+  // Nested Iterator class
+  private class SkipListIterator implements Iterator<Node> {
+    private Node current;
+
+    // Constructor
+    public SkipListIterator() {
+      // Initialize the current pointer to the start of the bottom level
+      this.current = head;
+      // Move to the bottom level
+      while (current.down != null) {
+        current = current.down;
+      }
+    }
+
+    // Check if the next element exists
+    @Override
+    public boolean hasNext() {
+      return current.next != null;
+    }
+
+    // Move to the next element and return it
+    public Node next() {
+      current = current.next; // Move to the next node
+      return current; // Return the value of the current node
+    }
   }
 }
