@@ -7,28 +7,24 @@ package proj1.lsmtree.impl;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.lang.instrument.Instrumentation;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import proj1.SkipList.Node;
-import proj1.SkipList.SkipList;
-import proj1.btree.BTree;
 import proj1.lsmtree.IMTable;
 import proj1.lsmtree.ISSTable;
-import proj1.lsmtree.model.DelCommand;
 import proj1.lsmtree.model.InsertCommand;
 import proj1.lsmtree.model.KeyIndex;
 import proj1.lsmtree.model.SearchCommand;
 import proj1.lsmtree.model.SetCommand;
 import org.ini4j.Ini;
-import org.ini4j.Wini;
 import java.io.InputStream;
-import java.io.IOException;
-// index 单独写成文件，在触发刷写机制的时候
+
+
 
 public class SSTableList implements ISSTable {
 
@@ -36,26 +32,28 @@ public class SSTableList implements ISSTable {
   int indexLength;
 
   private static int version = 1;
-  private String fileName;
+
   private File file = null;
   private RandomAccessFile randomAccessFile = null;
-  private int index;
-  private LinkedList<KeyIndex> keyIndexs = null;
   private static int MAX_FILE_SIZE = 1024 * 1024; // 1MB
   private static int BLOCK_SIZE = 256; // 256 bytes per block
   private static int HEAD_BLOCK_SIZE = BLOCK_SIZE; // Head block size, could be more than one block if needed
-  private static int MAX_BLOCKS = MAX_FILE_SIZE / BLOCK_SIZE; // Maximum number of blocks in a file
+  private static int MAX_BLOCKS = (MAX_FILE_SIZE - HEAD_BLOCK_SIZE)/ BLOCK_SIZE ; // Maximum number of blocks in a file
   private BitSet freeSpaceBitmap; // Bitmap for managing free space in blocks
   private static int INT_SIZE = Integer.SIZE / Byte.SIZE;
   private List<Integer> usedBlockIndices; // List to store indices of used blocks
   private static String CONFIG_FILE_PATH = "config.ini";
-
+  private static int triggerSize;
 
   public SSTableList() {
     // Initialize the bitmap with all blocks as free initially
     this.freeSpaceBitmap = new BitSet(MAX_BLOCKS);
     this.freeSpaceBitmap.set(0, MAX_BLOCKS - 1, true); // Mark all blocks as free, except for the head block
     this.usedBlockIndices = new ArrayList<>();
+  }
+
+  public void printConfig(){
+    System.out.println(MAX_FILE_SIZE + " " + BLOCK_SIZE + " " + HEAD_BLOCK_SIZE);
   }
 
   public void loadConfig() throws IOException {
@@ -71,8 +69,13 @@ public class SSTableList implements ISSTable {
       MAX_FILE_SIZE = ini.get("Settings", "MAX_FILE_SIZE", int.class);
       BLOCK_SIZE = ini.get("Settings", "BLOCK_SIZE", int.class);
       HEAD_BLOCK_SIZE = ini.get("Settings", "HEAD_BLOCK_SIZE", int.class);
-
-
+      double multiplier = ini.get("Settings","MULTIPLIER",double.class);
+      //System.out.println(MAX_BLOCKS);
+      MAX_BLOCKS = (MAX_FILE_SIZE - HEAD_BLOCK_SIZE)/ BLOCK_SIZE;
+      System.out.println(MAX_BLOCKS);
+      this.freeSpaceBitmap = new BitSet(MAX_BLOCKS);
+      this.freeSpaceBitmap.set(0, MAX_BLOCKS - 1, true);
+      this.triggerSize = (int) ((MAX_FILE_SIZE - HEAD_BLOCK_SIZE) * multiplier);
     } catch (IOException e) {
       System.err.println("Failed to load config: " + e.getMessage());
       e.printStackTrace();
@@ -98,18 +101,18 @@ public class SSTableList implements ISSTable {
 
       // Assuming memTable can be iterated over to get all commands
       for (Object obj : memTable) {
-        Node<?, ?> node = (Node<?, ?>) obj; // Casting required to access the Node type
+        Node node = (Node) obj; // Casting required to access the Node type
         byte[] commandBytes = node.getCommand().toBytes();
-        System.out.println("Processing command: " + node.getCommand());
+        //System.out.println("Processing command: " + node.getCommand());
 
         // Check if buffer is full before adding new command
         if (buffer.position() + commandBytes.length > buffer.limit()) {
           int blockIndex = findNextFreeBlock();
           if (blockIndex == -1) {
-            throw new RuntimeException("SSTable file is full.");
+            throw new RuntimeException("Too many data.");
           }
 
-          System.out.println("Buffer full. Preparing to write to block index: " + blockIndex);
+          //System.out.println("Buffer full. Preparing to write to block index: " + blockIndex);
           buffersToWrite.add(prepareBufferForFile(buffer, blockIndex));
 
           buffer = ByteBuffer.allocate(BLOCK_SIZE - INT_SIZE);
@@ -153,6 +156,7 @@ public class SSTableList implements ISSTable {
   private ByteBuffer prepareBufferForFile(ByteBuffer buffer, int blockIndex) throws IOException {
     ByteBuffer blockBuffer = ByteBuffer.allocate(BLOCK_SIZE);
     blockBuffer.putInt(blockIndex); // Prepend block index as metadata
+    // position?
     blockBuffer.put(buffer.array(), 0, buffer.position()); // Add buffer's content
     buffer.clear(); // Clear buffer for reuse
     markBlockAsUsed(blockIndex); // Update block usage tracking
@@ -197,7 +201,7 @@ public class SSTableList implements ISSTable {
   public void writeIndexToFile(IMTable memTable, String dataFileName, String indexFile){
     Command c ;
     c = memTable.get(null);
-    System.out.println(c);
+    //System.out.println(c);
     KeyIndex ki =  new KeyIndex(dataFileName,c.getKey());
     try (RandomAccessFile file = new RandomAccessFile(indexFile, "rw")) {
       file.seek(file.length()); // Move the pointer to the end of the file
@@ -309,14 +313,19 @@ public class SSTableList implements ISSTable {
 
       // Iterate through each used block index
       for (int index : usedBlockIndices) {
+        //System.out.println("Working on block " + index) ;
+
         file.seek((long) index * BLOCK_SIZE + HEAD_BLOCK_SIZE); // Position the file pointer at the start of the data block
 
         ByteBuffer dataBuffer = ByteBuffer.allocate(BLOCK_SIZE);
 
         file.read(dataBuffer.array());
 
+        dataBuffer.getInt();
+
+
         // Deserialize the data block using deserializeCommand method
-        List deserializedData = deserializeCommand(dataBuffer);
+        List<Command> deserializedData = deserializeCommand(dataBuffer);
 
         // Add the deserialized data of this block to the list of all data blocks' info
         dataBlocksInfo.add(deserializedData);
@@ -335,29 +344,38 @@ public class SSTableList implements ISSTable {
   public static List<Command> deserializeCommand(ByteBuffer buffer) {
 
     List commands = new ArrayList<>();
+    if (buffer.array().length != BLOCK_SIZE){
+      return null;
+    }
+
+
     while (buffer.hasRemaining()) {
       // Deserialize key-length
+      if (buffer.remaining() < Integer.BYTES) break;
+
       int keyLength = buffer.getInt();
 
-      if (keyLength == 0 ) continue;
+      if (keyLength <= 0 || keyLength > buffer.remaining() - 2 * Integer.BYTES) break;
 
       // Deserialize key-value
       byte[] keyBytes = new byte[keyLength];
       buffer.get(keyBytes);
       String key = new String(keyBytes);
 
+      if (buffer.remaining() < 2 * Integer.BYTES) break;
+      //System.out.println(key);
       // Deserialize cmd
       int cmd = buffer.getInt();
       if (cmd == -1) continue;
 
       // Deserialize value-length
       int valueLength = buffer.getInt();
-
+      if (valueLength < 0 || valueLength > buffer.remaining()) break;
       // Deserialize value
       byte[] valueBytes = new byte[valueLength];
       buffer.get(valueBytes);
       String value = new String(valueBytes);
-
+      //System.out.println(value);
       switch (cmd) {
         case 1:
           commands.add(new InsertCommand(key, value));
@@ -418,4 +436,6 @@ public class SSTableList implements ISSTable {
       file.delete();
     }
   }
+
+
 }

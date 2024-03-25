@@ -4,6 +4,7 @@
 
 package proj1.SkipList;
 
+import java.lang.instrument.Instrumentation;
 import java.util.Iterator;
 import java.util.Stack;
 import proj1.lsmtree.IMTable;
@@ -14,12 +15,13 @@ import proj1.lsmtree.model.SetCommand;
 
 
 // SkipList implementation supporting generic key-value pairs
-public class SkipList implements IMTable {
+public class SkipList implements IMTable{
 
 
   private Node head;
   private double prob; // Probability factor
   private int nodeCounter = 0; // Counter to keep track of the number of nodes
+  private int size = 0;
 
 
   public SkipList(double prob) {
@@ -41,12 +43,12 @@ public class SkipList implements IMTable {
         if (printPath) path.append(p.key);
       }
 
-      if (p.key != null && p.key.compareTo(key) == 0) {
+      if (p.key != null && p.compareTo(key) == 0) {
         found = true;
         break; // Key found
       }
 
-      if (p.next == null || p.next.key.compareTo(key) > 0) {
+      if (p.next == null || p.next.compareTo(key) > 0) {
         // Move down a level if the next key is greater than the target or there is no next node
         p = p.down;
       } else {
@@ -72,13 +74,13 @@ public class SkipList implements IMTable {
     // Iterate down through levels starting from the topmost level
     while (p != null) {
       // Check if the current node's key matches the search key
-      if (p.key != null && p.key.compareTo(key) == 0) {
+      if (p.key != null && p.compareTo(key) == 0) {
         return p; // Key found, return the node
       }
 
       // Determine the direction of the search:
       // Move down if at the end of the level or if the next key is greater than the search key
-      if (p.next == null || (p.next.key != null && p.next.key.compareTo(key) > 0)) {
+      if (p.next == null || (p.next.key != null && p.next.compareTo(key) > 0)) {
         p = p.down;
       } else {
         // Move to the next node if the next key is less than or equal to the search key
@@ -96,9 +98,9 @@ public class SkipList implements IMTable {
     String key = d.getKey();
     Node p = head;
     while (p != null) {
-      if (p.next == null || p.next.key.compareTo(key) > 0) {
+      if (p.next == null || p.next.compareTo(key) > 0) {
         p = p.down;
-      } else if (p.next.key.compareTo(key) == 0) {
+      } else if (p.next.compareTo(key) == 0) {
         p.next = p.next.next; // Remove the node
         p = p.down;
       } else {
@@ -108,15 +110,24 @@ public class SkipList implements IMTable {
   }
   // Inserts a new key-value pair into the SkipList
   @Override
-  public boolean insert(InsertCommand insertCommand) {
+  public boolean insert(Command insertCommand) {
     String key = insertCommand.getKey();
     String value = insertCommand.getValue();
 
+    int length = insertCommand.toBytes().length;
+    size += length;
 
     Node node = search(key);
     if (node != null) {
-      node.setVal(value);
+      if (!node.getVal().equals(value)) {
+        node.setVal(value);
+        return false;
+
+      }
+
     }
+
+
     try{
       // Path stack to track potential insertion points
       Stack<Node> potentialStack = new Stack<>();
@@ -124,7 +135,7 @@ public class SkipList implements IMTable {
 
       // Traverse down the skip list to locate the correct insertion point
       while (current != null){
-        if(current.next == null || current.next.key.compareTo(key) > 0){
+        if(current.next == null || current.next.compareTo(key) > 0){
           potentialStack.add(current);
           current = current.down;
         }else current = current.next;
@@ -141,6 +152,7 @@ public class SkipList implements IMTable {
         if(flag || num < this.prob){
           flag = false;
           Node temp = new Node(key, value);
+
           if(previous.next == null) previous.next = temp;
           else{
             temp.next = previous.next;
@@ -148,6 +160,7 @@ public class SkipList implements IMTable {
           }
           temp.down = down;
           down = temp;
+
         }else
           return true;
       }
@@ -225,6 +238,7 @@ public class SkipList implements IMTable {
     return nodeCounter;
   }
 
+
   @Override
   public Object getRawData() {
     Node current = head;
@@ -281,5 +295,22 @@ public class SkipList implements IMTable {
       current = current.next; // Move to the next node
       return current; // Return the value of the current node
     }
+
+
+  }
+
+  public int getSize() {
+    return size;
+  }
+
+  public int getSizeBytes() {
+    Iterator<Node> iterator = this.iterator();
+    int size = 0;
+    while (iterator.hasNext()) {
+      Node currentNode = iterator.next(); // Get the current node
+      size += currentNode.getCommand().toBytes().length;
+
+    }
+    return size;
   }
 }

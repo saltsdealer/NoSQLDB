@@ -6,10 +6,8 @@ package proj1.btree;
 
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Queue;
 import java.util.Spliterator;
@@ -19,7 +17,6 @@ import java.util.function.Consumer;
 import proj1.lsmtree.IMTable;
 import proj1.lsmtree.impl.Command;
 import proj1.lsmtree.model.DelCommand;
-import proj1.lsmtree.model.InsertCommand;
 import proj1.lsmtree.model.SearchCommand;
 import proj1.lsmtree.model.SetCommand;
 
@@ -40,6 +37,9 @@ public class BTree implements IMTable {
   private Node root;
 
   private int currentId;
+
+  private int size = 0;
+
 
 
   /**
@@ -162,7 +162,17 @@ public class BTree implements IMTable {
    *
    * @param entry The entry to insert into the B-tree. The entry contains a key-value pair.
    */
+  @Override
   public boolean insert(Command entry) {
+    Command c = searchEntry(Integer.parseInt(entry.getKey()));
+    if (c != null){
+      c.setValue(entry.getValue());
+      return true;
+    }
+    int keyL = entry.getKey().getBytes().length;
+    int valL = entry.getKey().getBytes().length;
+    int serializedSize = 4 + keyL + 4 + 4 + valL;
+    size += serializedSize;
     // If the root is null, create a new node and make it the root
     if (root == null) {
       Node node = new Node();
@@ -390,10 +400,7 @@ public class BTree implements IMTable {
 
   }
 
-  @Override
-  public boolean insert(InsertCommand insertCommand) {
-    return false;
-  }
+
 
   @Override
   public Command get(String key) {
@@ -438,7 +445,6 @@ public class BTree implements IMTable {
       entries += entriesCount;
     }
   }
-
 
   private class BTreeIterator implements Iterator<Node> {
     private Stack<Node> stack = new Stack<>();

@@ -11,6 +11,9 @@ import proj1.lsmtree.model.InsertCommand;
 import proj1.lsmtree.model.SetCommand;
 
 public interface IMTable<T> extends Iterable<T>{
+
+
+
   /**
    * Stores or updates a key-value pair in the Memtable using a SetCommand.
    *
@@ -28,10 +31,10 @@ public interface IMTable<T> extends Iterable<T>{
   /**
    * Attempts to insert a new key-value pair into the Memtable if the key does not already exist.
    *
-   * @param insertCommand The InsertCommand containing the key-value pair to be inserted.
+   * @param entry The InsertCommand containing the key-value pair to be inserted.
    * @return True if the key-value pair was successfully inserted, false if the key already exists.
    */
-  boolean insert(InsertCommand insertCommand);
+  boolean insert(Command entry);
 
   /**
    * Searches for and returns a command associated with a given key in the Memtable.

@@ -14,7 +14,7 @@ import proj1.SkipList.SkipList;
 import proj1.lsmtree.CommandEnum;
 import proj1.lsmtree.model.InsertCommand;
 import java.util.Map;
-
+import org.openjdk.jol.info.ClassLayout;
 /*
  *@Author : Tairan Ren
  *@Date   : 2024/3/9 19:53
@@ -22,6 +22,8 @@ import java.util.Map;
  */
     
     class CommandTest {
+
+
 
       @org.junit.jupiter.api.Test
       void compareTo() {
@@ -64,10 +66,39 @@ import java.util.Map;
         InsertCommand c =  new InsertCommand("3","12345");
         InsertCommand c1 =  new InsertCommand("4","12345");
         SkipList skipList = new SkipList(0.5);
-        skipList.insert(c);
-        skipList.insert(c1);
+
+        int size = 0;
+        for (int i = 1; i < 1000; i ++ ){
+          skipList.insert(new InsertCommand(String.valueOf(i),"12345"));
+        }
+
+        System.out.println(skipList.getSizeBytes());
+        System.out.println(skipList.getSize());
+        //SSTableList ss = new SSTableList();
+        //ss.write(skipList,"testForSizes.db");
+
+      }
+
+      @org.junit.jupiter.api.Test
+      void BulkWrite() throws IOException {
+
+        SkipList skipList = new SkipList(0.5);
+
         SSTableList ss = new SSTableList();
-        ss.write(skipList,"testWithIndexAndHeadBlock.db");
+
+        ss.loadConfig();
+
+        int size = (int) ( (1048576 - 65536) * 0.9);
+
+        for (int i = 100000; i <= 150000; i++){
+          skipList.insert(new InsertCommand(String.valueOf(i),"012345678901234567890123456789"));
+          if (skipList.getSize() >= size){
+            System.out.println("breaking at " + i);
+            break;
+          }
+        }
+
+        ss.write(skipList,"testBulkWithLimits.db");
 
       }
 
@@ -97,6 +128,33 @@ import java.util.Map;
         List blockZero  = (List) dataBlocksInfo.get(0);
         Command test = (Command) blockZero.get(0);
         System.out.println(test);
+
+      }
+
+      @org.junit.jupiter.api.Test
+      void Bulkload() throws IOException {
+        SSTableList ssTable = new SSTableList();
+        ssTable.loadConfig();
+        ssTable.printConfig();
+        Map<String, Object> fileInfo = ssTable.load("testBulkWithLimits.db");
+        ArrayList dataBlocksInfo = (ArrayList) fileInfo.get("DataBlocksInfo");
+        System.out.println("Version : "+fileInfo.get("Version"));
+        System.out.println("FileName : "+fileInfo.get("FileName"));
+        System.out.println("UsedBlockNums : "+fileInfo.get("UsedBlocksCount"));
+        System.out.println("UsedBlockIndex : "+fileInfo.get("UsedBlockIndices"));
+        System.out.println("UsedBlockFirstKeys : "+fileInfo.get("UsedBlockFirstKeys"));
+        System.out.println("The data : " + dataBlocksInfo);
+        List blockZero  = (List) dataBlocksInfo.get(0);
+        Command test = (Command) blockZero.get(0);
+        System.out.println(test);
+
+      }
+
+      @org.junit.jupiter.api.Test
+      void loadIni() throws IOException {
+        SSTableList ssTable = new SSTableList();
+        ssTable.loadConfig();
+        ssTable.printConfig();
 
       }
 

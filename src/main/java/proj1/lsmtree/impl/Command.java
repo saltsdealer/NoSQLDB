@@ -55,7 +55,7 @@ public abstract class Command implements Comparable<Command>{
   // Override toString for better readability and debugging
 
   public byte[] toBytes(){
-    //(key-len(int) + key-value +cmd(int)+ value-len(int) + value+))+
+    // ke(key-len(int) +y-value +cmd(int)+ value-len(int) + value+))+
     byte[] keyBytes = key.getBytes();
     byte[] valueBytes  = new byte[0];
     ByteBuffer byteBuffer  =null;
@@ -66,7 +66,7 @@ public abstract class Command implements Comparable<Command>{
       valueBytes = value.getBytes();
       byteBuffer = ByteBuffer.allocate(4+keyBytes.length+4+4+valueBytes.length);
     }
-    System.out.println(keyBytes.length);
+    //System.out.println(keyBytes.length);
 
 
     byteBuffer.putInt(keyBytes.length);

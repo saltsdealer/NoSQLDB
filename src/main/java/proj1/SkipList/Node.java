@@ -7,15 +7,15 @@ package proj1.SkipList;
 import proj1.lsmtree.impl.Command;
 import proj1.lsmtree.model.InsertCommand;
 
-public class Node <K extends Comparable<K>, V>{
-    protected K key;
-    protected V val;
+public class Node implements Comparable {
+    protected String key;
+    protected String val;
     protected Command command;
     protected Node next;
     protected Node down;
     int number = 0;
 
-    protected Node(K key, V value) {
+    protected Node(String key, String value)  {
         this.key = key;
         this.val = value;
         this.command = new InsertCommand((String) key, (String) value);
@@ -23,8 +23,8 @@ public class Node <K extends Comparable<K>, V>{
     }
 
     protected Node(Command c) {
-        this.key = (K) c.getKey();
-        this.val = (V) c.getValue();
+        this.key =  c.getKey();
+        this.val =  c.getValue();
         this.command = c;
         this.next = this.down = null;
     }
@@ -33,11 +33,11 @@ public class Node <K extends Comparable<K>, V>{
         return command;
     }
 
-    public K getKey() {
+    public String getKey() {
         return key;
     }
 
-    public V getVal() {
+    public String getVal() {
         return val;
     }
 
@@ -53,11 +53,25 @@ public class Node <K extends Comparable<K>, V>{
         return number;
     }
 
-    public void setKey(K key) {
+    public void setKey(String key) {
         this.key = key;
     }
 
-    public void setVal(V val) {
+    public void setVal(String val) {
         this.val = val;
+    }
+
+    @Override
+    public int compareTo(Object o) {
+        if (Integer.parseInt(key) == Integer.parseInt((String) o)) return 0;
+        return Integer.parseInt(key) > Integer.parseInt((String) o) ? 1 : -1;
+    }
+
+    @Override
+    public String toString() {
+        return "Node{" +
+            "key='" + key + '\'' +
+            ", val='" + val + '\'' +
+            '}';
     }
 }
