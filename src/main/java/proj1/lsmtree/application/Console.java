@@ -7,13 +7,16 @@ package proj1.lsmtree.application;
 import java.util.Scanner;
 import proj1.SkipList.SkipList;
 import proj1.btree.BTree;
+import proj1.lsmtree.IMTable;
 import proj1.lsmtree.impl.Command;
 import proj1.lsmtree.model.InsertCommand;
 
 public class Console {
 
-    private Object dataStructure;
-    private int flag; // 1 for BTree, 2 for SkipList
+    private IMTable dataStructure;
+    private int flag;
+
+
 
     public void menuBasic(int[] list) {
         try (Scanner scanner = new Scanner(System.in)) {
@@ -42,7 +45,6 @@ public class Console {
             }
         } // Scanner is automatically closed here
     }
-
 
     private void selectDataStructure(Scanner scanner, int[] list) {
         System.out.println("Pick which structures to use: 1. BTree 2. SkipList");

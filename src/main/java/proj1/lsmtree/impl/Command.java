@@ -83,6 +83,34 @@ public abstract class Command implements Comparable<Command>{
     return byteBuffer.array();
   }
 
+  public byte[] toBytesInt(){
+    // key(int) +cmd(int)+ value-len(int) + value+))+
+
+    byte[] valueBytes  = new byte[0];
+    ByteBuffer byteBuffer  =null;
+
+    if(getCommand().equals(CommandEnum.DELETE)){
+      byteBuffer = ByteBuffer.allocate(2+4+4+0);
+    }else{
+      valueBytes = value.getBytes();
+      byteBuffer = ByteBuffer.allocate(4+4+4+valueBytes.length);
+    }
+    //System.out.println(keyBytes.length);
+
+    byteBuffer.putInt(Integer.parseInt(key));
+    byteBuffer.putInt(getCommand().getFlag());
+
+    if(getCommand().equals(CommandEnum.DELETE)){
+      byteBuffer.putInt(0);
+    }else{
+      byteBuffer.putInt(valueBytes.length);
+      byteBuffer.put(valueBytes);
+    }
+
+    return byteBuffer.array();
+  }
+
+
   @Override
   public String toString() {
     return getClass().getSimpleName() + "{key='" + key + "', value='" + value + "'}";

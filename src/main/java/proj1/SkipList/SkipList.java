@@ -6,6 +6,7 @@ package proj1.SkipList;
 
 import java.lang.instrument.Instrumentation;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Stack;
 import proj1.lsmtree.IMTable;
 import proj1.lsmtree.impl.Command;
@@ -116,17 +117,17 @@ public class SkipList implements IMTable{
 
     int length = insertCommand.toBytes().length;
     size += length;
+    nodeCounter += 1;
 
     Node node = search(key);
     if (node != null) {
       if (!node.getVal().equals(value)) {
+        System.out.println("Duplicate key Detected at " + node.key + ", value replaced by the newer insert");
         node.setVal(value);
+        nodeCounter -= 1;
         return false;
-
       }
-
     }
-
 
     try{
       // Path stack to track potential insertion points
@@ -174,7 +175,7 @@ public class SkipList implements IMTable{
         minNode.next = temp;
         temp.down = down;
         head = minNode;
-        nodeCounter += 2;
+        //nodeCounter += 2;
       }
       return true;
     } catch (Exception e) {
@@ -312,5 +313,15 @@ public class SkipList implements IMTable{
 
     }
     return size;
+  }
+
+  public static SkipList rebuild(List<List<Command>> data){
+    SkipList sl = new SkipList(0.5);
+    for (List<Command> blocks : data){
+      for (Command c : blocks){
+        sl.insert(c);
+      }
+    }
+    return sl;
   }
 }

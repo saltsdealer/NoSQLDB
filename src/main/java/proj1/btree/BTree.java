@@ -166,6 +166,7 @@ public class BTree implements IMTable {
   public boolean insert(Command entry) {
     Command c = searchEntry(Integer.parseInt(entry.getKey()));
     if (c != null){
+      System.out.println("Duplicate key Detected at " + c.getKey() + " , value replaced by the newer insert");
       c.setValue(entry.getValue());
       return true;
     }
