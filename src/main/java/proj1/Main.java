@@ -11,7 +11,11 @@ import proj1.lsmtree.application.Console;
 public class Main {
 
     public static void main(String[] args) throws IOException {
+        try{
         Console c = new Console();
         c.menu();
+        } catch (Exception e){
+            System.out.println(e);
+        }
     }
 }
