@@ -1,9 +1,17 @@
 package proj1;
- /*
+/*
  *@Author : Tairan Ren
  *@Date   : 2024/3/29 16:47
- *@Title  : 
+ *@Title  :
  */
-    
-    public class Main {
+
+import java.io.IOException;
+import proj1.lsmtree.application.Console;
+
+public class Main {
+
+    public static void main(String[] args) throws IOException {
+        Console c = new Console();
+        c.menu();
+    }
 }

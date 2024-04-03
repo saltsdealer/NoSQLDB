@@ -7,6 +7,7 @@ package proj1.lsmtree.impl;
 import static proj1.SkipList.SkipList.rebuild;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
@@ -34,12 +35,7 @@ import java.io.InputStream;
 
 public class SSTableList implements ISSTable {
 
-  int commandLength;
-  int indexLength;
 
-  private static int version = 1;
-
-  private File file = null;
   private RandomAccessFile randomAccessFile = null;
   private static int MAX_FILE_SIZE = 1024 * 1024; // 1MB
   private static int BLOCK_SIZE = 256; // 256 bytes per block
@@ -49,23 +45,26 @@ public class SSTableList implements ISSTable {
   private static int INT_SIZE = Integer.SIZE / Byte.SIZE;
   private List<Integer> usedBlockIndices; // List to store indices of used blocks
   private int usedBlocks; //
-  private static String CONFIG_FILE_PATH = "config.ini";
+  public static String CONFIG_FILE_PATH = "config.ini";
   private static int triggerSize;
-  private int kvNums = 0;
   private Scanner scanner = new Scanner(System.in);
-  public SSTableList() {
+  private static File dataDirectory;
+
+  public SSTableList() throws IOException {
     // Initialize the bitmap with all blocks as free initially
-    this.freeSpaceBitmap = new BitSet(MAX_BLOCKS);
-    this.freeSpaceBitmap.set(0, MAX_BLOCKS - 1, true); // Mark all blocks as free, except for the head block
+    loadConfig();
+    //System.out.println(printConfig());
+//    this.freeSpaceBitmap = new BitSet(MAX_BLOCKS);
+//    this.freeSpaceBitmap.set(0, MAX_BLOCKS - 1, true); // Mark all blocks as free, except for the head block
     this.usedBlockIndices = new ArrayList<>();
   }
 
   public String printConfig(){
-    return  (MAX_FILE_SIZE + " " + BLOCK_SIZE + " " + HEAD_BLOCK_SIZE);
+    return  (MAX_FILE_SIZE + " " + BLOCK_SIZE + " " + HEAD_BLOCK_SIZE + " " + MAX_BLOCKS + " " + freeSpaceBitmap);
   }
 
   public String loadConfig() throws IOException {
-    try (InputStream inputStream = SSTableList.class.getClassLoader().getResourceAsStream(CONFIG_FILE_PATH)) {
+    try (InputStream inputStream = new FileInputStream(CONFIG_FILE_PATH)) {
       if (inputStream == null) {
         throw new IOException("Resource not found: " + CONFIG_FILE_PATH);
       }
@@ -73,17 +72,15 @@ public class SSTableList implements ISSTable {
       Ini ini = new Ini(inputStream);
 
       // Read configuration values directly
-      version = ini.get("Settings", "version", int.class);
       MAX_FILE_SIZE = ini.get("Settings", "MAX_FILE_SIZE", int.class);
       BLOCK_SIZE = ini.get("Settings", "BLOCK_SIZE", int.class);
       HEAD_BLOCK_SIZE = ini.get("Settings", "HEAD_BLOCK_SIZE", int.class);
       double multiplier = ini.get("Settings","MULTIPLIER",double.class);
       //System.out.println(MAX_BLOCKS);
       MAX_BLOCKS = (MAX_FILE_SIZE - HEAD_BLOCK_SIZE)/ BLOCK_SIZE;
-      System.out.println(MAX_BLOCKS);
       this.freeSpaceBitmap = new BitSet(MAX_BLOCKS);
       this.freeSpaceBitmap.set(0, MAX_BLOCKS - 1, true);
-      this.triggerSize = (int) ((MAX_FILE_SIZE - HEAD_BLOCK_SIZE) * multiplier);
+      this.triggerSize = (int) ((MAX_FILE_SIZE - HEAD_BLOCK_SIZE) * multiplier );
       return "1";
     } catch (IOException e) {
       e.printStackTrace();
@@ -91,29 +88,39 @@ public class SSTableList implements ISSTable {
     }
   }
 
+  public String bulkWrite(IMTable memTable, String fileName, String indexName){
+    String first = write(memTable,fileName);
+    writeIndexToFile(memTable,fileName,indexName);
+    return null;
+  }
 
   public String write(IMTable memTable, String fileName) {
     List<Command> cs = new ArrayList<>();
     Command c; // The first command of all data
 
     // Assuming memTable.get(null) is a valid way to obtain the first command for both BTree and SkipList
-    c = memTable.get(null);
+    c = memTable.get();
     cs.add(c); // Adding the very first data
 
     System.out.println("Writing to file: " + fileName);
-    try (RandomAccessFile file = new RandomAccessFile(fileName, "rw")) {
+    File f = new File(dataDirectory, fileName);
+    try (RandomAccessFile file = new RandomAccessFile(f.getAbsolutePath(), "rw")) {
       file.setLength(MAX_FILE_SIZE); // Set file size to 1 MB
       List<ByteBuffer> buffersToWrite = new ArrayList<>();
 
       // Initialize buffer with BLOCK_SIZE - INT_SIZE to leave space for metadata
       ByteBuffer buffer = ByteBuffer.allocate(BLOCK_SIZE - INT_SIZE);
-
+      byte[] commandBytes;
+      Node node = null;
       // Assuming memTable can be iterated over to get all commands
       for (Object obj : memTable) {
-        Node node = (Node) obj; // Casting required to access the Node type
-        byte[] commandBytes = node.getCommand().toBytes();
+        if (obj instanceof Command){
+          commandBytes = ((InsertCommand) obj).toBytes();
+        } else {
+          node = (Node) obj; // Casting required to access the Node type
+          commandBytes = node.getCommand().toBytes();
         //System.out.println("Processing command: " + node.getCommand());
-
+        }
         // Check if buffer is full before adding new command
         if (buffer.position() + commandBytes.length > buffer.limit()) {
           int blockIndex = findNextFreeBlock();
@@ -125,7 +132,13 @@ public class SSTableList implements ISSTable {
           buffersToWrite.add(prepareBufferForFile(buffer, blockIndex));
 
           buffer = ByteBuffer.allocate(BLOCK_SIZE - INT_SIZE);
-          c = node.getCommand(); // Store the first command of the new block
+
+          if (obj instanceof InsertCommand){
+
+            c = (Command) obj;
+          } else {
+            c = node.getCommand();
+          }// Store the first command of the new block
           cs.add(c);
         }
         buffer.put(commandBytes);
@@ -209,23 +222,34 @@ public class SSTableList implements ISSTable {
 
   public void writeIndexToFile(IMTable memTable, String dataFileName, String indexFileName){
     Command c ;
-    c = memTable.get(null);
+    c = memTable.get();
     //System.out.println(c);
     KeyIndex ki =  new KeyIndex(dataFileName,c.getKey());
-    try (RandomAccessFile file = new RandomAccessFile(indexFileName, "rw")) {
+    File f = new File(dataDirectory, indexFileName);
+    try (RandomAccessFile file = new RandomAccessFile(f.getAbsolutePath(), "rw")) {
       file.seek(file.length()); // Move the pointer to the end of the file
+      String version = getCurrentTimestamp();
+      file.writeInt(version.length());
+      file.writeBytes(version);
       file.write(ki.toBytes());
     } catch (IOException e) {
       e.printStackTrace();
     }
   }
 
-  public static Map<String, Object> loadIndexFile(String filePath) {
+  public Map<String, Object> loadIndexFile(String filePath) {
     Map<String, Object> indexInfo = new HashMap<>();
     List<String> fileNames = new ArrayList<>();
     List<String> keys = new ArrayList<>();
-    try (RandomAccessFile raf = new RandomAccessFile(filePath, "r")) {
+    List<String> ts = new ArrayList<>();
+    File file = new File(dataDirectory, filePath);
+    try (RandomAccessFile raf = new RandomAccessFile(file.getAbsolutePath(), "r")) {
       while (raf.getFilePointer() < raf.length()) {
+        int versionL = raf.readInt();
+        byte[] versionB = new byte[versionL];
+        raf.readFully(versionB);
+
+        String version = new String(versionB);
         // Read the length of the filename
         int fileNameLength = raf.readInt();
         // Read the filename
@@ -243,7 +267,9 @@ public class SSTableList implements ISSTable {
         // Add the filename and key to their respective lists
         fileNames.add(fileName);
         keys.add(key);
+        ts.add(version);
       }
+      indexInfo.put("version",ts);
       indexInfo.put("fileName",fileNames);
       indexInfo.put("FirstKeys",keys);
     } catch (IOException e) {
@@ -253,6 +279,10 @@ public class SSTableList implements ISSTable {
   }
 
   public static int search(List<String> list, int number) {
+    if (number < 0){
+      System.out.println("Invalid input");
+      return -1;
+    }
     if (list.isEmpty() ) {
       return -1;
     }
@@ -284,24 +314,72 @@ public class SSTableList implements ISSTable {
       return -1;
     }
     // At this point, low is the insertion point
-
   }
 
-  public static Command get(String key, String indexName) throws IOException {
-     SSTableList ss = new SSTableList();
-     ss.loadConfig();
-     return ss.searchData(key, searchIndex(key,indexName));
+  public static int searchFileInsert(List<String> list, int number) {
+    if (number < 0){
+      System.out.println("Invalid input");
+      return -1;
+    }
+    if (list.isEmpty() ) {
+      return -1;
+    }
+    if (list.size() == 1 && list.get(0).equals("0")) {
+      return 0 ; // Return 0 if searching for 0, otherwise -1
+    }
+    if (number >= Integer.parseInt(list.get(list.size()-1))){
+      return list.size()-1;
+    }
+    if (number < Integer.parseInt(list.get(0))){
+      return 0;
+    }
+
+    int low = 0;
+    int high = list.size() - 1;
+
+    while (low <= high) {
+      int mid = low + (high - low) / 2;
+      int midValue = Integer.parseInt(list.get(mid));
+
+      if (midValue == number) {
+        return mid; // Or return mid + 1 if you want to insert after duplicates
+      } else if (midValue < number) {
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+    if (low < list.size()) {
+      return low - 1; // Safe to return if low is within bounds
+    } else {
+      return -1;
+    }
+    // At this point, low is the insertion point
   }
 
-  public static String searchIndex(String key, String indexfile){
+  public static Command get(String key, String indexName, SSTableList ss) throws IOException {
+     String filename = ss.searchIndex(key,indexName);
+     if (filename == null) return null;
+     return ss.searchData(key, filename);
+  }
+
+  public String searchIndex(String key, String indexfile){
     Map<String, Object> indexs = loadIndexFile(indexfile);
     int idx = search((List<String>) indexs.get("FirstKeys"),Integer.parseInt(key));
+    if (idx != -1) {
+      System.out.println("Index file visited, Returning File index : " + idx);
+    }
+    if (idx == -1){
+      System.out.println("Filename not found");
+      return null;
+    }
     return ((List<String>)indexs.get("fileName")).get(idx);
   }
 
 
   public Command searchData(String key, String fileName){
-    try (RandomAccessFile file = new RandomAccessFile(fileName, "r")) {
+    File f = new File(dataDirectory, fileName);
+    try (RandomAccessFile file = new RandomAccessFile(f.getAbsolutePath(), "r")) {
       Map<String, Object> headblock = readHeadBlock(file);
       List<String> keys = (List<String>) headblock.get("UsedBlockFirstKeys");
       int index = search(keys,Integer.parseInt(key));
@@ -311,19 +389,26 @@ public class SSTableList implements ISSTable {
       dataBuffer.getInt();
       List<Command> deserializedData = deserializeCommand(dataBuffer);
       for (Command c : deserializedData) {
-        if (c.getKey().equals(key)) return c;
+        if (c.getKey().equals(key)) {
+          System.out.println("HeadBlock index Visited, Found in DataBlock : " + index);
+          return c;
+        }
       }
     } catch (Exception e) {
       e.printStackTrace();
     }
     return null;
   }
-
-  public void writeMeta(String dbName,List<String> fileNames, int kvNums, String metaName) {
+  public void writeMeta(String dbName,List<String> fileNames, int kvNums, String metaName, Boolean append) {
     // length + dbName + fileNames.size + kvNums + blockSize(int) + filenames(multi)
     // kvnumbs should be added in the top level
-    try (RandomAccessFile file = new RandomAccessFile(metaName, "rw")) {
-      file.seek(file.length()); // Move the pointer to the end of the file
+    File f = new File(dataDirectory, metaName);
+    try (RandomAccessFile file = new RandomAccessFile(f.getAbsolutePath(), "rw")) {
+      if (append)
+        file.seek(file.length()); // Move the pointer to the end of the file
+      String version = getCurrentTimestamp();
+      file.writeInt(version.length());
+      file.writeBytes(version);
       // Writing the length of dbName
       file.writeInt(dbName.length());
       // Writing the dbName itself
@@ -344,13 +429,21 @@ public class SSTableList implements ISSTable {
     }
   }
 
-  public String readMeta(String metaName) {
-    try (RandomAccessFile file = new RandomAccessFile(metaName, "r")) {
+  public Map<String,Object> readMeta(String metaName) {
+    File f = new File(dataDirectory, metaName);
+    try (RandomAccessFile file = new RandomAccessFile(f.getAbsolutePath(), "r")) {
+      Map<String,Object> map = new HashMap<>();
+      Map<String,Object> info = new HashMap<>();
       while (file.getFilePointer() < file.length()) {
+        // reading time stamp
+        int versionL = file.readInt();
+        byte[] versionB = new byte[versionL];
+        file.read(versionB);
+        String version = new String(versionB);
         // Reading the length of dbName and then the dbName itself
         int dbNameLength = file.readInt();
         byte[] dbNameBytes = new byte[dbNameLength];
-        file.readFully(dbNameBytes);
+        file.read(dbNameBytes);
         String dbName = new String(dbNameBytes);
         // Reading the size of fileNames and kvNums
         int fileNamesSize = file.readInt();
@@ -361,37 +454,43 @@ public class SSTableList implements ISSTable {
         for (int i = 0; i < fileNamesSize; i++) {
           int fileNameLength = file.readInt(); // Reading the length of the filename
           byte[] fileNameBytes = new byte[fileNameLength];
-          file.readFully(fileNameBytes);
+          file.read(fileNameBytes);
           String fileName = new String(fileNameBytes);
-          file.readByte(); // To skip the newline character added during write
           fileNames.add(fileName);
         }
+        info.put("size",fileNamesSize); info.put("kvNums",kvNums);
+        info.put("blocks",blockSize); info.put("fileNames", fileNames);
+        info.put("version",version);
 
+        map.put(dbName,info);
         // Print the read data
-        return printMeta(dbName, fileNames, kvNums, blockSize);
+        printMeta(dbName, fileNames, kvNums, blockSize, version);
+
       }
+      return map;
     } catch (IOException e) {
       e.printStackTrace();
     }
-    return "-1";
+    return null;
   }
-
   // Print Method
-  public String printMeta(String dbName, List<String> fileNames, int kvNums, int block) {
+  public void printMeta(String dbName, List<String> fileNames, int kvNums, int block, String version) {
     StringBuilder msg = new StringBuilder();
-    msg.append("Database Name: " + dbName +
-        "Key-Value Numbers: " + kvNums +
-        "Block-Size: " + block +
-        "Filenames: ");
+    msg.append("Version: " + version + " " +
+        "\nDatabase Name: " + dbName + " " +
+        "\nKey-Value Numbers: " + kvNums + " " +
+        "\nBlock-Size: " + block + " " +
+        "\nFilenames: ");
     for (String fileName : fileNames) {
       msg.append(" - " + fileName);
     }
-    return msg.toString();
+    System.out.println(msg.toString());
   }
 
   public Map<String, Object> open(String fileName) throws IOException {
     Map<String, Object> fileInfo = new HashMap<>();
-    try (RandomAccessFile file = new RandomAccessFile(fileName, "r")) {
+    File f = new File(dataDirectory, fileName);
+    try (RandomAccessFile file = new RandomAccessFile(f.getAbsolutePath(), "r")) {
       // Read the head block
       fileInfo = readHeadBlock(file);
       // Extracted fileInfo from headBlockInfo
@@ -458,8 +557,8 @@ public class SSTableList implements ISSTable {
     // + (keylength(int) + key)(multi)
     Map<String, Object> fileInfo = new HashMap<>();
     ArrayList<List<Command>> dataBlocksInfo = new ArrayList<>();
-
-    try (RandomAccessFile file = new RandomAccessFile(fileName, "r")) {
+    File f = new File(dataDirectory, fileName);
+    try (RandomAccessFile file = new RandomAccessFile(f.getAbsolutePath(), "r")) {
       // Read the head block
       ByteBuffer headBuffer = ByteBuffer.allocate(HEAD_BLOCK_SIZE);
       file.read(headBuffer.array());
@@ -626,50 +725,116 @@ public class SSTableList implements ISSTable {
     return formattedTimestamp;
   }
 
-  public static int getTriggerSize() {
+  public int getTriggerSize() {
     return triggerSize;
   }
 
-  public static String del(String key, String idxName) throws IOException {
+  public static void del(String key, String idxName, File directory) throws IOException {
     // get del put set 这四个方法需要是静态的，put 和 set 直接仿写这个方法就好
     SSTableList ss = new SSTableList();
-    ss.loadConfig();
-    Map<String, Object> info = ss.delInsertBasic(key,idxName,"delete",null);
+    ss.setDirectory(directory);
+    Map<String, Object> info = ss.delBasic(key,idxName,"delete",null);
+    if (info == null) return;
     SkipList sl = ss.reConstruct((List<List<Command>>) info.get("data"));
     ss.write( sl, (String) info.get("fileName"));
-    return null;
   }
+
+  public static void set(String key, String idxName, String value, File directory) throws IOException {
+    // get del put set 这四个方法需要是静态的，put 和 set 直接仿写这个方法就好
+    SSTableList ss = new SSTableList();
+    ss.setDirectory(directory);
+    Map<String, Object> info = ss.delBasic(key,idxName,"set",value);
+    if (info == null) return;
+    SkipList sl = ss.reConstruct((List<List<Command>>) info.get("data"));
+    ss.write( sl, (String) info.get("fileName"));
+  }
+
+  public static boolean put(String key, String value, String idxName, File directory)
+      throws IOException {
+    SSTableList ss = new SSTableList();
+    ss.setDirectory(directory);;
+    Map<String, Object> info = ss.delBasic(key,idxName,"insert",value);
+    SkipList sl = ss.reConstruct((List<List<Command>>) info.get("data"));
+    ss.write( sl, (String) info.get("fileName"));
+    return (boolean) info.get("isReplaced");
+  }
+
 
   public SkipList reConstruct(List<List<Command>> data){
     return rebuild(data);
   }
-  public Map<String,Object> delInsertBasic(String key, String idxName, String operation, String value) {
+  public Map<String,Object> delBasic(String key, String idxName, String operation, String value) {
     Map<String, Object> info = new HashMap<>();
-    String fileName = searchIndex(key, idxName);
+    String fileName = "";
 
-    System.out.println(fileName);
+    if (operation.equals("insert")){
+      Map<String, Object> indexs = loadIndexFile(idxName);
+      System.out.println(indexs);
+      int idx = searchFileInsert((List<String>) indexs.get("FirstKeys"),Integer.parseInt(key));
+      fileName = ((List<String>)indexs.get("fileName")).get(idx);
+    } else {
+      fileName = searchIndex(key, idxName);
+    }
+    System.out.println("filename + " + fileName);
+
     if (fileName == null || fileName.isEmpty()) {
       return null;
     }
     if (value == null && operation.equals("insert")) return null;
-    try (RandomAccessFile file = new RandomAccessFile(fileName, "r")) {
+
+    File f = new File(dataDirectory, fileName);
+    try (RandomAccessFile file = new RandomAccessFile(f.getAbsolutePath(), "r")) {
       SSTableList ss = new SSTableList();
       Map head = ss.readHeadBlock(file);
-
+      ss.usedBlocks = (int) head.get("UsedBlocksCount");
       int blockIndex = search((List<String>) head.get("UsedBlockFirstKeys"), Integer.parseInt(key));
-      System.out.println(blockIndex);
-      if (blockIndex == -1) {
+      System.out.println("blockIndex + " + blockIndex);
+
+      if (!operation.equals("insert") && blockIndex == -1) {
+        System.out.println("Data Not Found");
         return null;
       }
-      List<List<Command>> data = ss.readDataBlocks(file);
-      List<Command> commands = data.get(blockIndex);
-      for (Command c : commands) {
-        if (c.getKey().equals(key)) {
-          ss.handleOperation(c, operation, value);
-          break;
+      //del and set
+      if (!operation.equals("insert")) {
+        List<List<Command>> data = ss.readDataBlocks(file);
+        List<Command> commands = data.get(blockIndex);
+        for (Command c : commands) {
+          if (c.getKey().equals(key)) {
+            if (c.getValue().equals("null") && operation.equals("delete")){
+              System.out.println("Data Has Been Deleted");
+              return null;
+            }
+            ss.handleOperation(c, operation, value);
+            break;
+          }
         }
+        info.put("isReplaced",false);
+        info.put("fileName",fileName); info.put("data", data);
       }
-      info.put("fileName",fileName); info.put("data", data);
+      //insert
+      boolean flag = false;
+      boolean isReplaced = false;
+      if (operation.equals("insert")){
+        Map<String, Object> headBlock = head;
+        List<List<Command>> data = ss.readDataBlocks(file);
+        if (blockIndex != -1){
+          List<Command> commands = data.get(blockIndex);
+          for (Command c : commands) {
+            if (c.getKey().equals(key)) {
+              System.out.println(value);
+              isReplaced = promptForValue(c,value);
+              flag = true;
+              break;
+            }
+          }
+          if (!flag){
+            data.get(blockIndex).add(new InsertCommand(key, value));
+          }
+
+        }
+        info.put("isReplaced",isReplaced);
+        info.put("fileName",headBlock.get("FileName")); info.put("data",data);
+      }
       return info;
     } catch (Exception e) {
       e.printStackTrace();
@@ -682,19 +847,13 @@ public class SSTableList implements ISSTable {
       case "delete":
         command.setValue("null");
         break;
-      case "insert":
-        promptForValue(command,false,value);
-        break;
       case "set":
-        promptForValue(command, operation.equals("set") && command.getValue().equals("null"),value);
+        command.setValue(value != null && !value.isEmpty() ? value : scanner.nextLine());
         break;
     }
   }
 
-  private void promptForValue(Command command, boolean isSetOperation, String value) {
-    if (isSetOperation) {
-      command.setValue(value != null && !value.isEmpty() ? value : scanner.nextLine());
-    } else {
+  private boolean promptForValue(Command command, String value) {
       String response = "";
       while (!response.equalsIgnoreCase("Y") && !response.equalsIgnoreCase("N")) {
         if (!command.getValue().equals("null")){
@@ -703,7 +862,7 @@ public class SSTableList implements ISSTable {
           if (response.equalsIgnoreCase("Y")) {
             System.out.println("Setting : ");
             command.setValue(value != null && !value.isEmpty() ? value : scanner.nextLine());
-            break;
+            return true;
           } else if (response.equalsIgnoreCase("N")) {
             System.out.println("Operation Abandoned.");
             break;
@@ -711,11 +870,44 @@ public class SSTableList implements ISSTable {
             System.out.println("Invalid input, please enter 'Y' for Yes or 'N' for No.");
           }
         } else {
-          System.out.println("Setting : ");
+          System.out.println("Setting : " + value);
           command.setValue(value != null && !value.isEmpty() ? value : scanner.nextLine());
+          break;
         }
       }
+    return false;
+  }
+
+
+  public void setDirectory(File directory) {
+    this.dataDirectory = directory;
+  }
+
+  public void updateIndex(List<String> firstKeys, List<String>  fileNames, List<String> times, String indexFileName) {
+    if (firstKeys.size() != fileNames.size()) return;
+    List<KeyIndex> kis = new ArrayList<>();
+    for (int i = 0 ; i < firstKeys.size(); i++){
+      kis.add(new KeyIndex(fileNames.get(i),firstKeys.get(i)));
+    }
+
+    File f = new File(dataDirectory, indexFileName);
+    try (RandomAccessFile file = new RandomAccessFile(f.getAbsolutePath(), "rw")) {
+      for (KeyIndex ki : kis){// Move the pointer to the end of the file
+        String version = getCurrentTimestamp();
+        file.writeInt(version.length());
+        file.writeBytes(version);
+        file.write(ki.toBytes());
+      }
+    } catch (IOException e) {
+      e.printStackTrace();
     }
   }
 
+  private void clearFileContents(String fileName) throws IOException {
+    File f = new File(dataDirectory, fileName);
+    try (RandomAccessFile file = new RandomAccessFile(f, "rw")) {
+      file.setLength(0);
+      file.setLength(MAX_FILE_SIZE);// This will truncate the file to zero length, effectively clearing it
+    }
+  }
 }

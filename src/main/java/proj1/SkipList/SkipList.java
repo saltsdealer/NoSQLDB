@@ -70,7 +70,31 @@ public class SkipList implements IMTable{
     return found;
   }
 
-  public Node search(String key) {
+
+  public Command search(String key) {
+    Node p = head;
+    // Iterate down through levels starting from the topmost level
+    while (p != null) {
+      // Check if the current node's key matches the search key
+      if (p.key != null && p.compareTo(key) == 0) {
+        return p.getCommand(); // Key found, return the node
+      }
+
+      // Determine the direction of the search:
+      // Move down if at the end of the level or if the next key is greater than the search key
+      if (p.next == null || (p.next.key != null && p.next.compareTo(key) > 0)) {
+        p = p.down;
+      } else {
+        // Move to the next node if the next key is less than or equal to the search key
+        p = p.next;
+      }
+    }
+
+    // Key not found, return null
+    return null;
+  }
+
+  public Node search(String key, String n) {
     Node p = head;
     // Iterate down through levels starting from the topmost level
     while (p != null) {
@@ -119,12 +143,15 @@ public class SkipList implements IMTable{
     size += length;
     nodeCounter += 1;
 
-    Node node = search(key);
+    Node node = search(key,"");
     if (node != null) {
       if (!node.getVal().equals(value)) {
+
         System.out.println("Duplicate key Detected at " + node.key + ", value replaced by the newer insert");
         node.setVal(value);
+        node.getCommand().setValue(value);
         nodeCounter -= 1;
+        size -= node.getCommand().toBytes().length;
         return false;
       }
     }
@@ -185,17 +212,24 @@ public class SkipList implements IMTable{
 
   }
 
-
-
-
   @Override
   public void set(SetCommand setCommand) {
+    try {
+      Command c = search(setCommand.getKey());
+      if (c!= null){
+        c.setValue(setCommand.getValue());
+      } else {
+        throw new NullPointerException();
+      }
+    } catch (Exception e){
+      System.out.println("Failed, Node Not Exists");
+    }
 
   }
 
   // getting the first node
   @Override
-  public Command get(String key) {
+  public Command get() {
     Node current = head;
 
     // Traverse down to the bottom level
@@ -323,5 +357,9 @@ public class SkipList implements IMTable{
       }
     }
     return sl;
+  }
+
+  public int getNodeCounter() {
+    return nodeCounter;
   }
 }

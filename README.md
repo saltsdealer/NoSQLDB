@@ -160,7 +160,108 @@ Intellj Idea,
 
 [Github]: https://github.com/saltsdealer/NoSQLDB
 
+### 2. Actual Implementation 
 
+This project's execution is based on the designs and proposals outlined in the preceding chapters, successfully realizing a majority of the envisioned functionalities. However, the practical application revealed that integrating an LSM tree contradicted certain course requirements, such as file indexing. Moreover, the data volume did not necessitate compaction due to its insufficiency to trigger the process and there is no need for logs as it is not actually a part of the database but rather addons.
+
+Nevertheless, a compaction strategy was devised to address the accumulation of smaller files. While both BTree and SkipList data structures are viable and can be used interchangeably, empirical evidence showed a slight performance edge for SkipLists. Therefore, unless otherwise specified, SkipLists are the default data structure for in-memory operations.
+
+Data storage is facilitated through SSTables, employing a byte stream format. This choice was influenced by the data encapsulation within a Command class, allowing for a standardized and consistent serialization method.
+
+A notable highlight of the system is its capability for sequential data insertion, which stands out as a key feature.
+
+#### 2.1 Major Classes
+
+In-memory Structures:
+
+The `MemEngine` class orchestrates the in-memory data structures, managing the initial loading of data batches. Contrary to the conventional approach in LSM trees, where the most recent data segment is retained in memory, this implementation ensures all data is systematically flushed to disk storage, adhering to the course's stipulations.
+
+Persistent Storage:
+
+While the system doesn't employ the traditional leveling associated with LSM trees, it incorporates a compaction mechanism. The `SSTable` class encapsulates functionalities for interacting with disk-stored data, including reading, searching, writing, and deleting operations. Furthermore, it is engineered to parse configuration files, allowing for customizable settings such as head and data block sizes, enhancing its adaptability.
+
+Console:
+
+The console serves as the interface for user interaction, guiding the flow and execution of functions. It is the point of engagement where users can invoke the system's capabilities, making it a crucial component for operational accessibility.
+
+### 3. Assumption 
+
+The system is designed to accommodate keys that are either integers or comparable strings, ensuring flexibility in handling various data types. During the initial data loading phase, it's assumed that the input data is pre-sorted. This approach streamlines the insertion process, leveraging the efficiency of working with ordered datasets.
+
+Nevertheless, the system is also equipped to manage unsorted data inputs. While this capability is not explicitly exposed as a direct feature, it becomes operational during subsequent data insertions, beyond the initial load. This design choice presupposes that the initial bulk data ingestion is preprocessed and curated by ETL (Extract, Transform, Load) engineers to ensure data quality and order. Subsequent insertions, which might introduce unsorted data, activate the system's built-in mechanisms to handle such scenarios, maintaining the integrity and performance of the data management process.
+
+### 4 Sequential and Indexing Features
+
+The system is optimized for maximum efficiency when handling ordered data, which is why both BTree and SkipList data structures, known for maintaining order, are utilized. This ordering principle extends to the indexing mechanism as well:
+
+- The index file plays a crucial role by recording the key of the first data entry in each file, alongside the corresponding file names. This approach facilitates quick access to the appropriate data file during search operations, eliminating the need to scan all files.
+- Within each data file, the head block is designated for a special index block. This index block contains the keys of the first entry in each subsequent data block. This structure allows for rapid navigation within the file, significantly reducing the search space when looking for specific entries.
+
+This indexing strategy is inherently scalable. While the current setup involves indexing the first key of every data block, it can adapt to changing file sizes. For instance, if the file size increases significantly, the system could be adjusted to index the first key of every fifth block instead. This modification would not markedly impact efficiency, as it still provides a structured pathway to locate data quickly, demonstrating the system's flexibility and scalability in accommodating growing data volumes.
+
+#### 4.1 Searching Alog:
+
+Leveraging the ordered nature of both the index file and the index blocks within data files, the system employs a modified version of binary search for efficiently locating both filenames and specific data blocks. This adaptation of binary search aligns with the structured order of data storage, allowing for quick access to information.
+
+The time complexity of these search operations is primarily determined by the number of data blocks, denoted as log(NUM(datablocks)). In a scenario where the total data volume is approximately 4 MB, the system might only need to manage around 5 to 6 files. In such a context, the overhead introduced by searching among filenames is minimal and hardly impacts the overall efficiency. However, in scenarios involving larger datasets, the time complexity could extend to log(NUM(Datas/filesizes)) + log(NUM(datablocks)), reflecting the added layer of searching through a greater number of files before narrowing down to specific data blocks.
+
+In the current setup, the number of data blocks, estimated at 3800, is treated as a constant. This assumption simplifies the complexity model, focusing on the scalability of file management and access within those constraints. The efficiency of the system in handling data retrieval tasks underscores its robustness in managing datasets of varying sizes while maintaining quick access through its hierarchical indexing and binary search mechanisms.
+
+#### 4.2 The numeric Relationships
+
+In the process, the project noticed that there is a quite possible polynomial relationship between head block size, data block size max file size , that is :
+$$
+NUM(datablocs) * 4 + 1000 = HEADBLOCK
+$$
+However, it is not this project's purposes to looking into such math problems and hence a rough number is given in default settings.
+
+For now the configuration is setting as :
+
+```ini
+[Settings]
+version = 1
+# would require something more than datablocks * 4 
+MAX_FILE_SIZE = 1048576
+BLOCK_SIZE = 256
+HEAD_BLOCK_SIZE = 40000
+MULTIPLIER = 0.85
+META_BLOCK_SIZE = 128
+
+[Console]
+COMMA_OUTSIDE_QUOTES_PATTERN = (?=([^"*"^"*^"]*$))
+DOWNLOAD_REGEX = (.*?\(\d+\)),(.*)
+```
+
+ This will return with 3800 + ish data blocks.
+
+### 5 Compaction 
+
+The program is designed with the expectation that users may perform smaller batch data insertions, introducing the potential for unsorted or "dirty" data. To maintain data integrity and order within the system, a compaction method plays a critical role.
+
+The compaction process begins with sorting the incoming data to establish a clear sequence. This sorted sequence helps in determining the most efficient order for inserting the data into the existing structure. The primary goal during this phase is to merge and compact data in a way that preserves the overall order and optimizes storage efficiency.
+
+However, there's a recognition within the system that the insertion of new, sorted data during compaction could lead to files exceeding their optimal size. To address this issue, the system adopts a strategy reminiscent of LSM (Log-Structured Merge-tree) tree compaction mechanisms. Should a file grow too large as a result of compaction, the system is prepared to perform a more extensive operation: it will reload and reprocess the data, effectively starting the compaction process anew.
+
+This approach ensures that the system can adapt to the complexities of managing and organizing data, particularly when faced with the challenge of integrating unsorted insertions into an ordered structure. It reflects a balance between maintaining order and efficiency in data storage and allowing for the flexibility needed to accommodate user-driven data insertions.
+
+### 6 Use Cases:
+
+The program offers a suite of commands designed to facilitate various database operations:
+
+1. **`init [database name]`**: This command initializes a new database with the specified name. It sets up the necessary environment and structures for storing and managing data within the newly created database.
+2. **`use [database name] [tablename]`**: This command is used to select an existing database and table for subsequent operations. It's useful when you want to work with a specific dataset without creating a new database.
+3. **`put [filename.csv] [tablename]`**: This command loads data from a CSV file into the specified table. It's designed for bulk data insertion, allowing for efficient data import from external sources.
+4. **`get [filename]`**: This command exports data to a CSV file, facilitating data retrieval and export for analysis or backup purposes. It mirrors the `put` command but for data extraction.
+5. **`add`**: This command supports the insertion of single data entries, providing a means to add individual records to the database. It's particularly useful for incremental data updates or additions.
+6. **`del`**: This command is used for deleting single data entries. It allows for precise removal of specific records, maintaining data integrity and relevance.
+7. **`set`**: With this command, users can update the value of an existing data entry. It's essential for maintaining the accuracy and currency of the stored data.
+8. **`search`**: This command facilitates data retrieval based on specific criteria. It enables users to query the database for information, supporting a range of search requirements from simple lookups to more complex queries.
+
+These commands collectively provide a comprehensive toolkit for database management, from initialization and data loading to querying, updating, and deleting records. They cater to a wide range of data manipulation needs, ensuring flexibility and efficiency in database operations.
+
+
+
+###  
 
 ## Resources:
 - [B-tree Visualization](https://www.cs.usfca.edu/~galles/visualization/BTree.html)

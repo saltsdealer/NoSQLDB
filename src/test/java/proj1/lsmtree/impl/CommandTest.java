@@ -2,7 +2,7 @@ package proj1.lsmtree.impl;
 
 import static proj1.SkipList.SkipList.rebuild;
 import static proj1.lsmtree.impl.SSTableList.get;
-import static proj1.lsmtree.impl.SSTableList.loadIndexFile;
+
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -11,9 +11,11 @@ import java.util.ArrayList;
 import java.util.List;
 import proj1.SkipList.Node;
 import proj1.SkipList.SkipList;
+import proj1.btree.BTree;
 import proj1.lsmtree.IMTable;
 import proj1.lsmtree.model.InsertCommand;
 import java.util.Map;
+
 /*
  *@Author : Tairan Ren
  *@Date   : 2024/3/9 19:53
@@ -92,7 +94,7 @@ import java.util.Map;
         for (int i = 118432; i <= 150000; i++){
           skipList.insert(new InsertCommand(String.valueOf(i),"012345678901234567890123456789"));
           if (skipList.getSize() >= size){
-            System.out.println("breaking at " + i);
+            System.out.println("breaking at " + i + " with " + skipList.getSize());
             break;
           }
         }
@@ -174,14 +176,14 @@ import java.util.Map;
       @org.junit.jupiter.api.Test
       void loadIndex() throws IOException {
         SSTableList ss = new SSTableList();
-        Map res = loadIndexFile("test_index.idx");
-        System.out.println(res.get("fileName"));
-        System.out.println(res.get("FirstKeys"));
+        //Map res = loadIndexFile("test_index.idx");
+        //System.out.println(res.get("fileName"));
+        //System.out.println(res.get("FirstKeys"));
       }
 
       @org.junit.jupiter.api.Test
       void searchIndex() throws IOException{
-        System.out.println(get("118429", "test_bulk.idx"));
+        //System.out.println(get("118429", "test_bulk.idx"));
       }
 
       @org.junit.jupiter.api.Test
@@ -193,41 +195,32 @@ import java.util.Map;
 
       @org.junit.jupiter.api.Test
       void delDataSimple() throws IOException {
-        SSTableList ss = new SSTableList();
-        Map<String, Object> data = ss.delInsertBasic("2", "test_index.idx", "delete", null);
-        SkipList sl = rebuild((List<List<Command>>) data.get("data"));
-        System.out.println(sl);
-        ss.write(sl, (String) data.get("fileName"));
-
-        Map<String, Object> fileInfo = ss.open((String) data.get("fileName"));
-        ArrayList dataBlocksInfo = (ArrayList) fileInfo.get("DataBlocksInfo");
-        System.out.println("Version : "+fileInfo.get("Version"));
-        System.out.println("FileName : "+fileInfo.get("FileName"));
-        System.out.println("UsedBlockNums : "+fileInfo.get("UsedBlocksCount"));
-        //System.out.println("UsedBlockIndex : "+fileInfo.get("UsedBlockIndices"));
-        System.out.println("UsedBlockFirstKeys : "+fileInfo.get("UsedBlockFirstKeys"));
-        System.out.println("The data : " + dataBlocksInfo);
+//        SSTableList ss = new SSTableList();
+//        Map<String, Object> data = ss.delInsertBasic("2", "test_index.idx", "delete", null);
+//        SkipList sl = rebuild((List<List<Command>>) data.get("data"));
+//        System.out.println(sl);
+//        ss.write(sl, (String) data.get("fileName"));
+//
+//        Map<String, Object> fileInfo = ss.open((String) data.get("fileName"));
+//        ArrayList dataBlocksInfo = (ArrayList) fileInfo.get("DataBlocksInfo");
+//        System.out.println("Version : "+fileInfo.get("Version"));
+//        System.out.println("FileName : "+fileInfo.get("FileName"));
+//        System.out.println("UsedBlockNums : "+fileInfo.get("UsedBlocksCount"));
+//        //System.out.println("UsedBlockIndex : "+fileInfo.get("UsedBlockIndices"));
+//        System.out.println("UsedBlockFirstKeys : "+fileInfo.get("UsedBlockFirstKeys"));
+//        System.out.println("The data : " + dataBlocksInfo);
       }
 
       @org.junit.jupiter.api.Test
       void delDataBulk() throws IOException {
-//        SkipList skipList = new SkipList(0.5);
-//        skipList.insert(new InsertCommand("100000","null"));
-//        SSTableList ss = new SSTableList();
-//        ss.writeIndexToFile(skipList,"testBulkWithLimits.db","test_bulk.idx");
-//        skipList = new SkipList(0.5);
-//        skipList.insert(new InsertCommand("118432","null"));
-//        ss.writeIndexToFile(skipList,"testBulkWithLimits.db","test_bulk.idx");
-//
-//        Map res = loadIndexFile("test_bulk.idx");;
-//        System.out.println(res.get("fileName"));
-//        System.out.println(res.get("FirstKeys"));
-        SSTableList ss = new SSTableList();
-        ss.loadConfig();
-        Map res = ss.delInsertBasic("118429","test_bulk.idx","delete",null);
-        SkipList sl = ss.reConstruct((List<List<Command>>) res.get("data"));
-        ss.write( sl, (String) res.get("fileName"));
+        BTree bt = new BTree(15);
+        for (int i = 0; i < 10; i ++){
+          bt.insert(new InsertCommand(String.valueOf(i),"1"));
+        }
+
+
 
       }
+
 
     }

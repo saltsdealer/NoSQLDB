@@ -17,6 +17,7 @@ import java.util.function.Consumer;
 import proj1.lsmtree.IMTable;
 import proj1.lsmtree.impl.Command;
 import proj1.lsmtree.model.DelCommand;
+import proj1.lsmtree.model.InsertCommand;
 import proj1.lsmtree.model.SearchCommand;
 import proj1.lsmtree.model.SetCommand;
 
@@ -40,6 +41,7 @@ public class BTree implements IMTable {
 
   private int size = 0;
 
+  private Command firstEntry;
 
 
   /**
@@ -76,8 +78,9 @@ public class BTree implements IMTable {
    * @param key The key of the entry to search for.
    * @return The entry with the specified key if found, otherwise {@code null}.
    */
-  public Command searchEntry(int key) {
-    return searchEntry(root, key,"");
+
+  public Command search(String key) {
+    return searchEntry(root, Integer.parseInt(key),"");
   }
 
   /**
@@ -90,7 +93,7 @@ public class BTree implements IMTable {
   private Command searchEntry(Node node, int key, String path) {
     // Base case: when the node is null, meaning the search has reached a leaf without finding the key
     if (node == null) {
-      System.out.println("No Key Found");
+      //System.out.println("No Key Found");
       return null;
     }
 
@@ -164,16 +167,18 @@ public class BTree implements IMTable {
    */
   @Override
   public boolean insert(Command entry) {
-    Command c = searchEntry(Integer.parseInt(entry.getKey()));
+    if (firstEntry == null) firstEntry = new InsertCommand(entry.getKey(), entry.getValue());
+    Command c = search(entry.getKey());
+    int length = entry.toBytes().length;
+    size += length;
+
     if (c != null){
       System.out.println("Duplicate key Detected at " + c.getKey() + " , value replaced by the newer insert");
+      size -= c.toBytes().length;
       c.setValue(entry.getValue());
       return true;
     }
-    int keyL = entry.getKey().getBytes().length;
-    int valL = entry.getKey().getBytes().length;
-    int serializedSize = 4 + keyL + 4 + 4 + valL;
-    size += serializedSize;
+
     // If the root is null, create a new node and make it the root
     if (root == null) {
       Node node = new Node();
@@ -289,10 +294,10 @@ public class BTree implements IMTable {
    *
    * @return An array where the first element is the total number of nodes and the second element is the total number of entries in the B-Tree.
    */
-  public int[] countNodesAndEntries() {
+  public int size() {
     TreeCounts counts = new TreeCounts();
     countNodesAndEntries(root, counts);
-    return new int[]{counts.nodes, counts.entries};
+    return counts.entries;
   }
 
   /**
@@ -336,6 +341,10 @@ public class BTree implements IMTable {
 //      setNodeIds(child);
 //    }
 //  }
+
+  public int getSize() {
+    return size;
+  }
 
 
 
@@ -393,7 +402,16 @@ public class BTree implements IMTable {
 
   @Override
   public void set(SetCommand setCommand) {
-
+    try {
+      Command c = search(setCommand.getKey());
+      if (c!= null){
+        c.setValue(setCommand.getValue());
+      } else {
+        throw new NullPointerException();
+      }
+    } catch (Exception e){
+      System.out.println("Failed, Node Not Exists");
+    }
   }
 
   @Override
@@ -404,24 +422,17 @@ public class BTree implements IMTable {
 
 
   @Override
-  public Command get(String key) {
-    return root.getEntries().get(0);
+  public Command get() {
+    return firstEntry;
   }
 
-  @Override
-  public int size() {
-    return 0;
-  }
 
   @Override
   public Object getRawData() {
     return null;
   }
 
-  @Override
-  public Iterator<Node> iterator() {
-    return new BTreeIterator(root); // Assuming 'root' is the root node of your BTree
-  }
+
   @Override
   public void forEach(Consumer action) {
   }
@@ -447,40 +458,67 @@ public class BTree implements IMTable {
     }
   }
 
-  private class BTreeIterator implements Iterator<Node> {
+
+  public class BTreeIterator implements Iterator<Command> {
     private Stack<Node> stack = new Stack<>();
+    private Iterator<Command> currentIterator;
 
     public BTreeIterator(Node root) {
-      pushLeftChildren(root);
+      pushLeft(root);
+      advance();
     }
 
-    private void pushLeftChildren(Node node) {
+    private void pushLeft(Node node) {
       while (node != null) {
         stack.push(node);
         if (!node.getChildNodes().isEmpty()) {
-          node = node.getChildNodes().get(0); // Assuming the first child is the leftmost child
+          node = node.getChildNodes().get(0);
         } else {
-          break; // No more children, exit the loop
+          node = null; // Reached a leaf
         }
+      }
+    }
+
+    private void advance() {
+      if (stack.isEmpty()) {
+        currentIterator = null;
+        return;
+      }
+
+      Node next = stack.pop();
+      currentIterator = next.getEntries().iterator();
+      if (!next.getChildNodes().isEmpty()) {
+        // Push the right subtree of the next node to the stack
+        int rightChildIndex = next.getEntries().size(); // Index of the right child
+        pushLeft(next.getChildNodes().get(rightChildIndex));
       }
     }
 
     @Override
     public boolean hasNext() {
-      return !stack.isEmpty();
+      return currentIterator != null && currentIterator.hasNext();
     }
 
     @Override
-    public Node next() {
-      if (!hasNext()) {
+    public Command next() {
+      if (currentIterator == null) {
         throw new NoSuchElementException();
       }
-      Node currentNode = stack.pop();
-      if (!currentNode.getChildNodes().isEmpty() && currentNode.getChildNodes().size() > 1) {
-        // If the node has more than one child, push the left children of the node's right child
-        pushLeftChildren(currentNode.getChildNodes().get(1)); // Assuming the second child is the right child
+
+      Command nextCommand = currentIterator.next();
+      if (!currentIterator.hasNext()) {
+        advance();
       }
-      return currentNode;
+      return nextCommand;
     }
   }
+
+  // Other BTree methods here
+
+  // Method to get the iterator
+  @Override
+  public Iterator<Command> iterator() {
+    return new BTreeIterator(root);
+  }
+
 }

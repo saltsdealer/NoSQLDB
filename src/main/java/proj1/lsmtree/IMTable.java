@@ -5,6 +5,7 @@
 package proj1.lsmtree;
 
 import java.util.Map;
+import proj1.SkipList.Node;
 import proj1.lsmtree.impl.Command;
 import proj1.lsmtree.model.DelCommand;
 import proj1.lsmtree.model.InsertCommand;
@@ -37,19 +38,33 @@ public interface IMTable<T> extends Iterable<T>{
   boolean insert(Command entry);
 
   /**
-   * Searches for and returns a command associated with a given key in the Memtable.
+   * Returns the first command of the table.
    *
-   * @param key The key for which to search.
-   * @return The command associated with the key if found, or null if the key is not present.
+   * @return
    */
-  Command get(String key);
+  Command get();
 
   /**
-   * Returns the number of key-command pairs in the Memtable.
-   *
-   * @return The size of the Memtable.
+   * Returns the number of kvs in the memtable
+   * @return
    */
   int size();
 
   T getRawData();
+
+  /**
+   * Returns the number of bytes for the kv pairs in the Memtable.
+   *
+   * @return The size of the Memtable.
+   */
+  int getSize();
+
+  /**
+   * Search the keys
+   * @param key
+   * @return
+   */
+  Command search(String key);
+
+
 }
