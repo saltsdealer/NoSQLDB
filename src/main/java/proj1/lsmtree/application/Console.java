@@ -826,7 +826,7 @@ public class Console {
         Map<String, Object> detail = (Map<String, Object>) meta.get(dbName);
         int kvNums = (int) detail.get("kvNums");
         flag += kvNums;
-        File f = new File(dataDirectory, dbName + "_meta.meta");
+        File f = new File(dataDirectory, dbName + "_" + tableName + "_meta.meta");
         try (RandomAccessFile file = new RandomAccessFile(f, "rw")) {
             file.setLength(0); // This will truncate the file to zero length, effectively clearing it
         } catch (IOException e) {
