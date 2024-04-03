@@ -64,7 +64,6 @@ public class Console {
     private MeMEngine mm;
     private int readyFlag = 0;
     private Map<String,String> reads = new HashMap<>();
-
     private static Pattern COMMA_OUTSIDE_QUOTES_PATTERN = Pattern.compile(
         ",(?=([^\"]*\"[^\"]*\")*[^\"]*$)", Pattern.MULTILINE);
     private static Pattern FILE_INDEX_PATTERN = Pattern.compile("_(\\d+)\\.db");
@@ -73,13 +72,19 @@ public class Console {
     public Console() throws IOException {
     }
 
-    public static void writeMapToIniFile(Map<String, String> map) {
+    public static void writeMapToIniFile(Map<String, String> map1) {
         File file = new File(CONFIG_FILE_PATH);
 
-        try (PrintWriter writer = new PrintWriter(new FileWriter(file))) {
-            for (Map.Entry<String, String> entry : map.entrySet()) {
-                writer.println(entry.getKey() + "=" + entry.getValue());
+        boolean appendMode = false;
+
+        try (PrintWriter writer = new PrintWriter(new FileWriter(file, appendMode))) {
+            // Write the map's entries to the file only if the map is not empty
+            if (!map1.isEmpty()) {
+                for (Map.Entry<String, String> entry : map1.entrySet()) {
+                    writer.println(entry.getKey() + "=" + entry.getValue());
+                }
             }
+
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -102,7 +107,8 @@ public class Console {
                 }
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            System.out.println(
+                "ini file for CONFIG_FILE_PATH is not created, use quit to shut down the programme");
         }
 
         return map;
@@ -143,18 +149,18 @@ public class Console {
                 String input = lineReader.readLine().trim();
                 String[] s = input.split(" ");
 
-                if (input.equals("help")){
-                    System.out.println(
-                        ">>> init -- [dbName]\n"
-                        + ">>> use  -- [dbName] [tableName] \n"
-                        + ">>> put  -- [filename.csv] [tableName] \n"
-                        + ">>> set  -- [key] [value] \n"
-                        + ">>> del  -- [key] \n"
-                        + ">>> dir  -- [dbName] \n"
-                        + ">>> rm   -- [filename] \n"
-                        + ">>> kill -- entire db/[tableName] [dataFilename] single table\n"
-                        + ">>> get  -- [filename]/[all] [tableName] \n"
-                        + ">>> add  -- [key] [value]");
+                if (input.equals("read")){
+                    System.out.println("Already Loaded datafile and tables: " + reads.keySet());
+                    continue;
+                }
+
+                if (input.equals("current")){
+                    System.out.println("Working at : " + this.dbName +"_"+ this.tableName);
+                    continue;
+                }
+
+                if (input.equals("help")) {
+                    helpConsole();
                     continue;
                 }
 
@@ -202,46 +208,49 @@ public class Console {
                         if (readyFlag == 0) continue;
                         String[] finalS1 = s;
                         measureExecutionTime(() -> {
-                            if (finalS1.length < 3) {
-                                System.out.println(">>> Table Name Not Given, Using Default");
-                            } else if (this.tableName.equals("default")){
-                                this.tableName = finalS1[2];
-                            }
+                            // if data was inserted, just stop the command
                             if (reads.isEmpty()) {
                                 System.out.println(">>> First Time Loading Data");
                             } else if (checkIfInserted(finalS1[1])) {
                                 System.out.println(">>> Data already Inserted");
                                 return; // Use return instead of break to exit the Runnable
-                            } else if (!finalS1[2].equals(this.tableName)) {
+                            }
+
+                            if (finalS1.length < 3) {
+                                System.out.println(">>> Table Name Not Given");
+                                return;
+                            }
+                            // check if table was created
+                            if (!checkIfInserted(finalS1[2])) {
                                 System.out.println("Creating New Table, Loading Data: ");
                                 this.tableName = finalS1[2];
+                                reads.put(finalS1[2],dbName);
+                                System.out.println(">>> In this case, All thing will be put into Hard Disk");
+                                System.out.println(">>> Writing Data : ");
+                                try {
+                                    processCSV(finalS1[1], mm);
+                                    reads.put(finalS1[1], dbName);
+                                    System.out.println("Flushing Memory : ");
+                                    flush(mm,"sl");
+                                    System.out.println("Meta Data: ");
+                                    writeMeta(mm,false);
+                                } catch (IOException e) {
+                                    System.out.println(e);
+                                }
                             } else {
-                                // only happens when inserting into the current table logically ok,
+                                // only happens when inserting into the current table since its logically ok,
                                 // not going to change this
                                 System.out.println(">>> Inserting new File to " + tableName);
                                 try {
+
                                     List<List<String>> c = Console.readCSVAndDetectSequentialChunks(
                                         finalS1[1],true);
                                     orderNoMatterInsertion(c,new File(dbName),dbName,tableName);
                                     compaction(dbName,new File(dbName),tableName);
                                     reads.put(finalS1[1], dbName);
-                                    return;
                                 } catch (IOException e) {
-                                    throw new RuntimeException(e);
+                                    System.out.println(e);
                                 }
-                            }
-
-                            System.out.println(">>> In this case, All thing will be put into Hard Disk");
-                            System.out.println(">>> Writing Data : ");
-                            try {
-                                processCSV(finalS1[1], mm);
-                                reads.put(finalS1[1], dbName);
-                                System.out.println("Flushing Memory : ");
-                                flush(mm);
-                                System.out.println("Meta Data: ");
-                                writeMeta(mm,false);
-                            } catch (IOException e) {
-                                throw new RuntimeException(e);
                             }
                         });
                         break;
@@ -249,20 +258,19 @@ public class Console {
                         if (readyFlag == 0) continue;
                         String[] finalS2 = s;
                         measureExecutionTime(() -> {
-                            if (finalS2.length < 3) {
-                                System.out.println(">>> Table Name Not Given, Using Default");
-                            } else {
-                                this.tableName = finalS2[2];
-                            }
+
                             if (reads.isEmpty()) {
                                 System.out.println(">>> First Time Loading Data");
                             } else if (checkIfInserted(finalS2[1])) {
                                 System.out.println(">>> Data already Inserted");
                                 return; // Use return instead of break to exit the Runnable
-                            } else {
-                                System.out.println(">>> Inserting new File to " + dbName);
                             }
 
+                            if (finalS2.length < 3) {
+                                System.out.println(">>> Table Name Not Given");
+                                return;
+                            }
+                            this.tableName = finalS2[2];
                             System.out.println(">>> In this case, All thing will be put into Hard Disk");
                             System.out.println(">>> Writing Data : ");
                             try {
@@ -270,11 +278,13 @@ public class Console {
                                 mm.setDbName(dbName);
                                 processCSV(finalS2[1], mm);
                                 System.out.println("Flushing Memory : ");
-                                flush(mm);
+                                flush(mm,"BTree");
                                 System.out.println("Meta Data: ");
                                 writeMeta(mm,false);
+                                reads.put(finalS2[1], dbName);
+                                reads.put(finalS2[2],dbName);
                             } catch (IOException e) {
-                                throw new RuntimeException(e);
+                                System.out.println(e);
                             }
 
                         });
@@ -367,9 +377,7 @@ public class Console {
                         this.readyFlag = 0;
 
                         break;
-                    case "flush":
-                        flush(mm);
-                        break;
+
                     case "get":
                         try{
                             if (s.length < 3 && s[1].equals("all")) return;
@@ -398,10 +406,33 @@ public class Console {
 
     }
 
+
+
+    private void helpConsole() {
+        System.out.println("Available Commands:");
+        System.out.println("  Database Operations:");
+        System.out.println("    init  [dbName]                -> Initialize a new database with the specified name");
+        System.out.println("    use   [dbName] [tableName]    -> Select a database and table to work with");
+        System.out.println("    dir   [dbName]                -> List all tables within the specified database");
+        System.out.println("    kill  [target]                -> Remove an entire database or a single table. Specify 'entire db' or '[tableName] [dataFilename]'");
+
+        System.out.println("\n  Table Operations:");
+        System.out.println("    put   [filename.csv] [tableName]  -> Import data from a CSV file to a table. Use the same name for appending");
+        System.out.println("    get   [filename]/[all] [tableName] -> Export data to a file or get all data from a table");
+        System.out.println("    rm    [filename]                   -> Remove a file");
+
+        System.out.println("\n  Data Manipulation:");
+        System.out.println("    set   [key] [value]    -> Set a key-value pair");
+        System.out.println("    add   [key] [value]    -> Add a new key-value pair");
+        System.out.println("    del   [key]            -> Delete a key-value pair by key");
+        System.out.println("    read                   -> Returns the loaded data files");
+    }
+
     public boolean checkIfInserted(String filename){
        if (reads.get(filename) != null) return true;
            return false;
     }
+
 
     // init dbName
     public void init(String dbName) throws IOException {
@@ -427,6 +458,7 @@ public class Console {
     public void setDirectory(String dbName, String tableName) throws IOException {
         createConfigFile(SSTableList.CONFIG_FILE_PATH);
         initializeComponents(dbName); // Initialize common components
+        if (reads.isEmpty())
         this.reads = readIniFileToMap();
         dataDirectory = new File(System.getProperty("user.dir"), dbName);
         ss.setDirectory(dataDirectory);
@@ -485,9 +517,13 @@ public class Console {
         }
     }
 
-    public void flush(MeMEngine mm) throws IOException {
+    public void flush(MeMEngine mm, String type) throws IOException {
         if (mm.getWritable() == null || mm.getWritable().size() == 0) {
             System.out.println("Memory has been unloaded");
+        }
+        if (type.equals("BTree")){
+            mm.flush(1,dbName + "_" + tableName + "_" + getCurrentTimestamp() + "_last.db",
+                dbName + "_" + tableName + "_id.idx");
         }
         mm.flush(dbName + "_" + tableName + "_" + getCurrentTimestamp() + "_last.db",
             dbName + "_" + tableName + "_id.idx");
@@ -713,7 +749,7 @@ public class Console {
             detail.put("kvNums", newTotalKv);
             detail.put("fileNames", fileNames);
             meta.put(dbName, detail);
-            File f = new File(dataDirectory, dbName + "_meta.meta");
+            File f = new File(dataDirectory, dbName + "_" + tableName + "_meta.meta");
             try (RandomAccessFile file = new RandomAccessFile(f, "rw")) {
                 file.setLength(0); // This will truncate the file to zero length, effectively clearing it
             }
@@ -722,7 +758,7 @@ public class Console {
     }
 
     private void updateIndex(String fileName, MeMEngine mm) throws IOException {
-        Map<String, Object> index = ss.loadIndexFile(dbName + "_id.idx");
+        Map<String, Object> index = ss.loadIndexFile(dbName + "_" + tableName + "_id.idx");
         List<String> ifileNames = (List<String>) index.get("fileName");
         List<String> firstKeys = (List<String>) index.get("FirstKeys");
         List<String> timeStamps = (List<String>) index.get("version");
@@ -732,7 +768,7 @@ public class Console {
             ifileNames.remove(indexToRemove);
             firstKeys.remove(indexToRemove);
             timeStamps.remove(indexToRemove);
-            File f = new File(dataDirectory, dbName + "_id.idx");
+            File f = new File(dataDirectory, dbName + "_" + tableName + "_id.idx");
             try (RandomAccessFile file = new RandomAccessFile(f, "rw")) {
                 file.setLength(0); // This will truncate the file to zero length, effectively clearing it
             }
@@ -943,6 +979,7 @@ public class Console {
                     iterator.remove(); // This removes the current entry from the map
                 }
             }
+            writeMapToIniFile(map);
             System.out.println(">>> Directory and all its contents have been successfully deleted.");
         } catch (IOException e) {
             e.printStackTrace();
@@ -971,10 +1008,16 @@ public class Console {
         }
 
         // Remove the entry from the map with the matching filename key
-        if (map.containsKey(filename)) {
-            map.remove(filename);
-            System.out.println("Removed file records from map with key: " + filename);
+        Iterator<Map.Entry<String, String>> iterator = map.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<String, String> entry = iterator.next();
+            String key = entry.getKey();
+            if (key.contains(filename)) { // Check if the key contains the filename
+                iterator.remove(); // Safely remove the current entry from the map
+                System.out.println("Removed file records from map with key: " + key);
+            }
         }
+        writeMapToIniFile(map);
     }
 
     public static void orderNoMatterInsertion(List<List<String>> data, File dataDirectory, String dbName, String tableName) throws IOException {

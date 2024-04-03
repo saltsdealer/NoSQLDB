@@ -199,6 +199,8 @@ The system is optimized for maximum efficiency when handling ordered data, which
 
 This indexing strategy is inherently scalable. While the current setup involves indexing the first key of every data block, it can adapt to changing file sizes. For instance, if the file size increases significantly, the system could be adjusted to index the first key of every fifth block instead. This modification would not markedly impact efficiency, as it still provides a structured pathway to locate data quickly, demonstrating the system's flexibility and scalability in accommodating growing data volumes.
 
+![](https://i.postimg.cc/524t5jjy/temp.png)
+
 #### 4.1 Searching Alog:
 
 Leveraging the ordered nature of both the index file and the index blocks within data files, the system employs a modified version of binary search for efficiently locating both filenames and specific data blocks. This adaptation of binary search aligns with the structured order of data storage, allowing for quick access to information.
@@ -206,6 +208,8 @@ Leveraging the ordered nature of both the index file and the index blocks within
 The time complexity of these search operations is primarily determined by the number of data blocks, denoted as log(NUM(datablocks)). In a scenario where the total data volume is approximately 4 MB, the system might only need to manage around 5 to 6 files. In such a context, the overhead introduced by searching among filenames is minimal and hardly impacts the overall efficiency. However, in scenarios involving larger datasets, the time complexity could extend to log(NUM(Datas/filesizes)) + log(NUM(datablocks)), reflecting the added layer of searching through a greater number of files before narrowing down to specific data blocks.
 
 In the current setup, the number of data blocks, estimated at 3800, is treated as a constant. This assumption simplifies the complexity model, focusing on the scalability of file management and access within those constraints. The efficiency of the system in handling data retrieval tasks underscores its robustness in managing datasets of varying sizes while maintaining quick access through its hierarchical indexing and binary search mechanisms.
+
+
 
 #### 4.2 The numeric Relationships
 
@@ -240,9 +244,13 @@ The program is designed with the expectation that users may perform smaller batc
 
 The compaction process begins with sorting the incoming data to establish a clear sequence. This sorted sequence helps in determining the most efficient order for inserting the data into the existing structure. The primary goal during this phase is to merge and compact data in a way that preserves the overall order and optimizes storage efficiency.
 
-However, there's a recognition within the system that the insertion of new, sorted data during compaction could lead to files exceeding their optimal size. To address this issue, the system adopts a strategy reminiscent of LSM (Log-Structured Merge-tree) tree compaction mechanisms. Should a file grow too large as a result of compaction, the system is prepared to perform a more extensive operation: it will reload and reprocess the data, effectively starting the compaction process anew.
+However, there's a recognition within the system that the insertion of new, sorted data during compaction could lead to files exceeding their optimal size. To address this issue, the system adopts a strategy reminiscent of LSM tree compaction mechanisms. Should a file grow too large as a result of compaction, the system is prepared to perform a more extensive operation: it will reload and reprocess the data, effectively starting the compaction process anew.
 
 This approach ensures that the system can adapt to the complexities of managing and organizing data, particularly when faced with the challenge of integrating unsorted insertions into an ordered structure. It reflects a balance between maintaining order and efficiency in data storage and allowing for the flexibility needed to accommodate user-driven data insertions.
+
+![](https://i.postimg.cc/ZnQL8XxK/mr.png)
+
+
 
 ### 6 Use Cases:
 

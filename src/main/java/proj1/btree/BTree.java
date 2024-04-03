@@ -4,10 +4,12 @@
 
 package proj1.btree;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Queue;
 import java.util.Spliterator;
@@ -419,6 +421,28 @@ public class BTree implements IMTable {
 
   }
 
+  // Method to loop through all nodes and sort commands by key
+  public List<Command> getSortedCommands() {
+    List<Command> allCommands = new ArrayList<>();
+    collectCommands(root, allCommands);
+    allCommands.sort((c1, c2) -> Integer.compare(Integer.parseInt(c1.getKey()), Integer.parseInt(c2.getKey())));
+    return allCommands;
+  }
+
+  // Helper method to recursively collect commands from each node
+  private void collectCommands(Node node, List<Command> allCommands) {
+    if (node == null) {
+      return;
+    }
+
+    // Add all commands from the current node
+    allCommands.addAll(node.getEntries());
+
+    // Recurse for all the child nodes
+    for (Node child : node.getChildNodes()) {
+      collectCommands(child, allCommands);
+    }
+  }
 
 
   @Override
@@ -461,54 +485,61 @@ public class BTree implements IMTable {
 
   public class BTreeIterator implements Iterator<Command> {
     private Stack<Node> stack = new Stack<>();
-    private Iterator<Command> currentIterator;
+    private Node currentNode;
+    private int commandIndex;
 
     public BTreeIterator(Node root) {
-      pushLeft(root);
-      advance();
+      this.currentNode = findLeftMostLeaf(root);
+      this.commandIndex = 0;
     }
 
-    private void pushLeft(Node node) {
-      while (node != null) {
+    private Node findLeftMostLeaf(Node node) {
+      while (!node.getChildNodes().isEmpty()) {
         stack.push(node);
-        if (!node.getChildNodes().isEmpty()) {
-          node = node.getChildNodes().get(0);
-        } else {
-          node = null; // Reached a leaf
-        }
+        node = node.getChildNodes().get(0);
       }
-    }
-
-    private void advance() {
-      if (stack.isEmpty()) {
-        currentIterator = null;
-        return;
-      }
-
-      Node next = stack.pop();
-      currentIterator = next.getEntries().iterator();
-      if (!next.getChildNodes().isEmpty()) {
-        // Push the right subtree of the next node to the stack
-        int rightChildIndex = next.getEntries().size(); // Index of the right child
-        pushLeft(next.getChildNodes().get(rightChildIndex));
-      }
+      return node;
     }
 
     @Override
     public boolean hasNext() {
-      return currentIterator != null && currentIterator.hasNext();
+      // Check if the current node or the stack has more elements
+      return currentNode != null && (commandIndex < currentNode.getEntries().size() || !stack.isEmpty());
     }
 
     @Override
     public Command next() {
-      if (currentIterator == null) {
+      if (!hasNext()) {
         throw new NoSuchElementException();
       }
 
-      Command nextCommand = currentIterator.next();
-      if (!currentIterator.hasNext()) {
-        advance();
+      Command nextCommand = null;
+
+      if (commandIndex < currentNode.getEntries().size()) {
+        nextCommand = currentNode.getEntries().get(commandIndex++);
       }
+
+      // Move to the next node if we have visited all commands in the current node
+      if (commandIndex >= currentNode.getEntries().size()) {
+        if (!stack.isEmpty()) {
+          Node parent = stack.peek();
+          int childIndex = parent.getChildNodes().indexOf(currentNode) + 1;
+
+          // Move to the next sibling if exists
+          if (childIndex < parent.getChildNodes().size()) {
+            currentNode = findLeftMostLeaf(parent.getChildNodes().get(childIndex));
+            commandIndex = 0;
+          } else {
+            // If no more siblings, pop the stack and set the parent as the current node
+            currentNode = stack.pop();
+            commandIndex = childIndex - 1; // Move to the command after the last child
+          }
+        } else {
+          // If the stack is empty, we are done
+          currentNode = null;
+        }
+      }
+
       return nextCommand;
     }
   }

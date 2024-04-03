@@ -30,9 +30,6 @@ import proj1.lsmtree.model.SetCommand;
 import org.ini4j.Ini;
 import java.io.InputStream;
 
-
-
-
 public class SSTableList implements ISSTable {
 
 
@@ -115,7 +112,8 @@ public class SSTableList implements ISSTable {
       // Assuming memTable can be iterated over to get all commands
       for (Object obj : memTable) {
         if (obj instanceof Command){
-          commandBytes = ((InsertCommand) obj).toBytes();
+          InsertCommand command = (InsertCommand) obj;
+          commandBytes = command.toBytes();
         } else {
           node = (Node) obj; // Casting required to access the Node type
           commandBytes = node.getCommand().toBytes();
@@ -133,9 +131,8 @@ public class SSTableList implements ISSTable {
 
           buffer = ByteBuffer.allocate(BLOCK_SIZE - INT_SIZE);
 
-          if (obj instanceof InsertCommand){
-
-            c = (Command) obj;
+          if (obj instanceof Command){
+            c = (InsertCommand) obj;
           } else {
             c = node.getCommand();
           }// Store the first command of the new block
@@ -152,7 +149,6 @@ public class SSTableList implements ISSTable {
           buffersToWrite.add(prepareBufferForFile(buffer, blockIndex));
         }
       }
-
       // Prepare head block with metadata
       ByteBuffer headBlock = prepareHeadBlock(cs, fileName);
 
@@ -194,10 +190,12 @@ public class SSTableList implements ISSTable {
     headBuffer.putInt(fileName.length());
     headBuffer.put(fileName.getBytes());
     headBuffer.putInt(usedBlockIndices.size()); // Number of used blocks
+
     for (int i = 0; i < usedBlockIndices.size(); i++) {
       //Integer index = usedBlockIndices.get(i); // Get the index at position i
       //headBuffer.putInt(index); // Store the index in the buffer
-      String c = cs.get(i).getKey();
+      Command command = cs.get(i);
+      String c = command.getKey();
       // in case the id turned out not to be integer directly, still, it is 4 bytes
       headBuffer.putInt(c.length());
       headBuffer.put(c.getBytes());

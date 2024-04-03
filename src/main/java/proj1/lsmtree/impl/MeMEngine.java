@@ -17,6 +17,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.ini4j.Ini;
 import proj1.SkipList.SkipList;
 import proj1.btree.BTree;
+import proj1.btree.PackedBTree;
 import proj1.lsmtree.IMTable;
 import proj1.lsmtree.model.DelCommand;
 import proj1.lsmtree.model.InsertCommand;
@@ -44,6 +45,7 @@ public class MeMEngine {
 
   public MeMEngine(String notmeaningful) throws IOException {
     this.writable = new BTree(10);
+    this.readOnly = new BTree(10);
     this.files = new ArrayList<>();
     loadConfig();
   }
@@ -158,13 +160,15 @@ public class MeMEngine {
     try {
       readOnly = writable; // Make the current writable memtable read-only
       writable = new BTree(10); // Create a new writable memtable
+
+      PackedBTree temp = new PackedBTree( ((BTree)readOnly));
       String fileName = dbName + "_" +  counter + ".db";
       counter += 1;
       this.kvs.add(readOnly.size());
       this.files.add(fileName);
       this.KVNums += readOnly.size();
       SSTableList ss = new SSTableList();
-      ss.bulkWrite(readOnly,fileName,indexName);
+      ss.bulkWrite(temp,fileName,indexName);
     } catch (Exception e) {
       e.printStackTrace();
     }
@@ -195,6 +199,22 @@ public class MeMEngine {
       this.files.add(filename);
       SSTableList ss = new SSTableList();
       ss.bulkWrite(writable, filename, indexName);
+      this.KVNums += writable.size();
+      this.kvs.add(writable.size());
+      System.out.println("Flushed : " + writable.size());
+      writable = new SkipList(0.5);
+      readOnly = new SkipList(0.5);
+    }else {
+      System.out.println("Nothing to flush");
+    }
+  }
+
+  public void flush(int type, String filename,String indexName) throws IOException {
+    if (writable.getSize() > 0 && writable.size() > 0) {
+      PackedBTree temp = new PackedBTree( ((BTree)writable));
+      this.files.add(filename);
+      SSTableList ss = new SSTableList();
+      ss.bulkWrite(temp, filename, indexName);
       this.KVNums += writable.size();
       this.kvs.add(writable.size());
       System.out.println("Flushed : " + writable.size());
