@@ -358,8 +358,14 @@ public class Console {
                         });
                         break;
                     case "rm":
-                        if (readyFlag == 0) continue;
-                        destroy(s[1],mm);
+                        try {
+                            if (readyFlag == 0)
+                                continue;
+                            destroy(s[1], mm);
+                        } catch (Exception e) {
+                            System.out.println(e);
+                        }
+                        break;
                     case "kill":
                         if (s.length == 1){
                             System.out.println("Deleting Entire Database");
@@ -557,6 +563,7 @@ public class Console {
             System.out.println("Error: An I/O exception occurred while trying to retrieve the data.");
             e.printStackTrace(); // Consider logging the stack trace or handling it more gracefully.
         }
+
     }
 
     public void del(String key,MeMEngine mm) throws IOException {
@@ -708,6 +715,11 @@ public class Console {
     }
 
     public void destroy(String fileName, MeMEngine mm) throws IOException {
+        String tableName = fileName.split("_")[1];
+        if (!tableName.equals(this.tableName)){
+            System.out.println("Currently Managing different table, change table first");
+            return;
+        }
 
         String newFileName = dbName + File.separator + fileName;
         Path path = Paths.get(newFileName);
@@ -740,12 +752,25 @@ public class Console {
         Map<String, Object> meta = ss.readMeta(dbName +"_" + tableName+ "_meta.meta");
         Map<String, Object> detail = (Map<String, Object>) meta.get(dbName);
         List<String> fileNames = (List<String>) detail.get("fileNames");
+        System.out.println(fileNames);
+        System.out.println(fileName);
         int fileIndex = fileNames.indexOf(fileName);
+        System.out.println(fileIndex);
 
         if (fileIndex != -1) {
             fileNames.remove(fileIndex);
-            List<Integer> kvs = mm.getKvs();
-            int newTotalKv = ((int) detail.get("kvNums")) - kvs.get(fileIndex);
+            List<Integer> kvs = new ArrayList<>();
+            int counter = 0;
+            if (mm.getKvs().isEmpty()){
+                Map<String, Object> data =  ss.open(fileName);
+                List<List<Command>> dataBlocks = (List<List<Command>>) data.get("DataBlocksInfo");
+
+                for (List<Command> block : dataBlocks){
+                    counter += block.size();
+                }
+
+            } else kvs = mm.getKvs();
+            int newTotalKv = ((int) detail.get("kvNums")) - (kvs.isEmpty() ? counter : kvs.get(fileIndex));
             detail.put("kvNums", newTotalKv);
             detail.put("fileNames", fileNames);
             meta.put(dbName, detail);
