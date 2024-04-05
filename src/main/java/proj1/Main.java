@@ -15,6 +15,7 @@ public class Main {
             Console c = new Console();
             c.menu();
         } catch (Exception e){
+            System.out.println("Critical Error Occurred : ");
             System.out.println(e);
         }
     }

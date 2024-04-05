@@ -228,25 +228,28 @@ public class Console {
                                 System.out.println(">>> In this case, All thing will be put into Hard Disk");
                                 System.out.println(">>> Writing Data : ");
                                 try {
+                                    mm = new MeMEngine();
                                     processCSV(finalS1[1], mm);
                                     reads.put(finalS1[1], dbName);
                                     System.out.println("Flushing Memory : ");
                                     flush(mm,"sl");
                                     System.out.println("Meta Data: ");
-                                    writeMeta(mm,false);
+                                    //System.out.println(mm.getFiles());
+                                    writeMeta(mm,false,finalS1[2]);
+
                                 } catch (IOException e) {
                                     System.out.println(e);
                                 }
                             } else {
                                 // only happens when inserting into the current table since its logically ok,
                                 // not going to change this
-                                System.out.println(">>> Inserting new File to " + tableName);
+                                System.out.println(">>> Inserting new File to " + finalS1[2]);
                                 try {
 
                                     List<List<String>> c = Console.readCSVAndDetectSequentialChunks(
                                         finalS1[1],true);
-                                    orderNoMatterInsertion(c,new File(dbName),dbName,tableName);
-                                    compaction(dbName,new File(dbName),tableName);
+                                    orderNoMatterInsertion(c,new File(dbName),dbName,finalS1[2]);
+                                    compaction(dbName,new File(dbName),finalS1[2]);
                                     reads.put(finalS1[1], dbName);
                                 } catch (IOException e) {
                                     System.out.println(e);
@@ -280,9 +283,9 @@ public class Console {
                                 System.out.println("Flushing Memory : ");
                                 flush(mm,"BTree");
                                 System.out.println("Meta Data: ");
-                                writeMeta(mm,false);
+                                writeMeta(mm,false,finalS2[2]);
                                 reads.put(finalS2[1], dbName);
-                                reads.put(finalS2[2],dbName);
+                                reads.put(finalS2[2], dbName);
                             } catch (IOException e) {
                                 System.out.println(e);
                             }
@@ -373,12 +376,23 @@ public class Console {
                             this.dbName = null;
                             ss = new SSTableList();
                             mm = new MeMEngine();
-                        } else if (s.length == 3){
+                        } else if (s.length == 4){
                             System.out.println("Deleting Entire Table");
                             this.tableName = null;
                             ss = new SSTableList();
                             mm = new MeMEngine();
-                            deleteFilesContainingTableName(dbName,s[1],s[2],reads);
+
+                            deleteFilesContainingTableName(dbName,s[2], reads, s[3]);
+                        } else if (s.length > 4){
+                            System.out.println("Deleting Entire Table");
+                            this.tableName = null;
+                            ss = new SSTableList();
+                            mm = new MeMEngine();
+                            List<String> temp = new ArrayList<>();
+                            for (int i = 3; i < temp.size(); i++){
+                                temp.add(s[i]);
+                            }
+                            deleteFilesContainingTableName(dbName,s[2], reads, temp);
                         }
                         this.readyFlag = 0;
 
@@ -392,7 +406,7 @@ public class Console {
                                     System.out.println("init or select db first");
                                     return;
                                 }
-                                downLoadAll(tableName,new File(dbName));
+                                downLoadAll(s[2],new File(dbName));
                                 break;
                             }
                             downLoad(s[1],new File(dbName));
@@ -500,7 +514,8 @@ public class Console {
             return;
         }
         else if (filename.endsWith(".meta")) {
-            ss.readMeta( dbName + "_" + tableName +"_meta.meta");
+            String tName = filename.split("_")[1];
+            ss.readMeta( dbName + "_" + tName +"_meta.meta");
             return;
         }
         Map<String, Object> fileInfo = ss.open(filename);
@@ -709,7 +724,7 @@ public class Console {
         this.dbName = dbName;
     }
 
-    public void writeMeta(MeMEngine mm, boolean append) throws IOException {
+    public void writeMeta(MeMEngine mm, boolean append, String tableName) throws IOException {
         SSTableList ss = new SSTableList();
         ss.writeMeta(dbName,mm.getFiles(),mm.getKVNums(),dbName + "_" + tableName + "_meta.meta", append);
     }
@@ -852,7 +867,7 @@ public class Console {
         int kvNums = (int) detail.get("kvNums");
         flag += kvNums;
         File f = new File(dataDirectory, dbName + "_" + tableName + "_meta.meta");
-        try (RandomAccessFile file = new RandomAccessFile(f, "rw")) {
+        try (RandomAccessFile file = new RandomAccessFile(f.getAbsolutePath(), "rw")) {
             file.setLength(0); // This will truncate the file to zero length, effectively clearing it
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -906,8 +921,7 @@ public class Console {
         ss.setDirectory(dataDirectory);
         File outputDir = new File("output");
         if (!outputDir.exists()) {
-            System.out.println("Database Does Not Exists");
-            return;
+            outputDir.mkdir();
         }
         File csvOutputFile = new File(outputDir, tableName + "_data.csv");
 
@@ -1012,7 +1026,7 @@ public class Console {
         }
     }
 
-    public static void deleteFilesContainingTableName(String directoryPath, String tableName, String filename, Map<String, String> map) {
+    public static void deleteFilesContainingTableName(String directoryPath, String tableName,  Map<String, String> map, List<String> filenames) {
         Path path = Paths.get(directoryPath);
 
         // Use try-with-resources to automatically close the resources
@@ -1037,11 +1051,52 @@ public class Console {
         while (iterator.hasNext()) {
             Map.Entry<String, String> entry = iterator.next();
             String key = entry.getKey();
-            if (key.contains(filename)) { // Check if the key contains the filename
-                iterator.remove(); // Safely remove the current entry from the map
-                System.out.println("Removed file records from map with key: " + key);
+            for (String filename : filenames) { // Iterate over each provided filename
+                if (key.contains(tableName) || key.contains(filename)) { // Check if the key contains the table name or any of the filenames
+                    iterator.remove(); // Safely remove the current entry from the map
+                    System.out.println("Removed file records from map with key: " + key);
+                    continue; // Exit the filenames loop as we've already removed the key
+                }
             }
         }
+
+        writeMapToIniFile(map);
+    }
+
+    public static void deleteFilesContainingTableName(String directoryPath, String tableName,  Map<String, String> map, String filename) {
+        Path path = Paths.get(directoryPath);
+
+        // Use try-with-resources to automatically close the resources
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(path)) {
+            for (Path entry : stream) {
+                // Check if it's a file and if the name contains the table name
+                if (Files.isRegularFile(entry) && entry.getFileName().toString().contains(tableName)) {
+                    try {
+                        Files.delete(entry);
+                        System.out.println("Deleted: " + entry);
+                    } catch (IOException e) {
+                        System.err.println("Error deleting file: " + entry + " - " + e.getMessage());
+                    }
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("Error reading directory: " + directoryPath + " - " + e.getMessage());
+        }
+
+        // Remove the entry from the map with the matching filename key
+        Iterator<Map.Entry<String, String>> iterator = map.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<String, String> entry = iterator.next();
+            String key = entry.getKey();
+            // Iterate over each provided filename
+                if (key.contains(tableName) || key.contains(filename)) { // Check if the key contains the table name or any of the filenames
+                    iterator.remove(); // Safely remove the current entry from the map
+                    System.out.println("Removed file records from map with key: " + key);
+                    continue; // Exit the filenames loop as we've already removed the key
+                }
+
+        }
+
         writeMapToIniFile(map);
     }
 

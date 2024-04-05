@@ -401,6 +401,7 @@ public class SSTableList implements ISSTable {
     // length + dbName + fileNames.size + kvNums + blockSize(int) + filenames(multi)
     // kvnumbs should be added in the top level
     File f = new File(dataDirectory, metaName);
+
     try (RandomAccessFile file = new RandomAccessFile(f.getAbsolutePath(), "rw")) {
       if (append)
         file.seek(file.length()); // Move the pointer to the end of the file
